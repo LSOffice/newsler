@@ -13,21 +13,21 @@ import images from "../../constants/images";
 import {
   Bell,
   LucideBell,
+  LucideHome,
   LucideLocate,
   LucideMenu,
+  LucidePanelTop,
   LucideUser,
   LucideVerified,
   UserCheck,
   UserX,
 } from "lucide-react-native";
 import BlinkDot from "../../components/Blink";
-import Explore from "./explore";
-import Saved from "./saved";
-import Settings from "./settings";
 import HorizontalScrollMenu, {
   RouteProps,
 } from "@nyashanziramasanga/react-native-horizontal-scroll-menu/src";
 import { router } from "expo-router";
+import { Dialog } from "@rneui/themed";
 
 const Home = () => {
   const [isRefresh, setisRefresh] = useState(false);
@@ -42,27 +42,29 @@ const Home = () => {
   }, []);
 
   useEffect(() => {
-    console.log(isRefresh);
-
-    // fetch("https://dummyjson.com/products?offset=" + offset)
-    //     .then((response) => response.json())
-    //     .then((data) => {
-    //       if (isReload.current) {
-    //         isReload.current = false;
-    //       }
-    //       if (data.products.length > 0) {
-    //         setOffset(offset + 1);
-    //         showDataSource();
-
-    //         loading.current = false;
-    //       } else {
-    //         setIsListEnd(true);
-    //         loading.current = false;
-    //       }
-    //     })
-    //     .catch((error) => {
-    //       console.error(error);
-    //     });
+    if (isRefresh) {
+      setDataSource([]);
+      console.log("isRefresh");
+      fetch("https://dummyjson.com/products?offset=" + offset)
+        .then((response) => response.json())
+        .then((data) => {
+          if (data.products.length > 0) {
+            setOffset(offset + 1);
+            if (selectedIndex == 0) {
+              setDataSource([...newsArticles]);
+            } else {
+              setDataSource([]);
+            }
+          } else {
+            setDataSource([]);
+            setIsListEnd(true);
+          }
+          setisRefresh(false);
+        })
+        .catch((error) => {
+          console.error(error);
+        });
+    }
   }, [isRefresh]);
 
   const numOfTabs = 4;
@@ -89,7 +91,7 @@ const Home = () => {
     },
   ];
 
-  const newsArticles = [
+  let newsArticles = [
     {
       article_id: "abc",
       title: "Island School unveils new billion-dollar campus",
@@ -108,37 +110,7 @@ const Home = () => {
       verified: true,
       live: false,
       image_uri:
-        "https://www.usatoday.com/gcdn/authoring/authoring-images/2024/07/05/PMJS/74313173007-biden-madison.jpg?crop=8255,4645,x0,y429&width=660&height=371&format=pjpg&auto=webp",
-    },
-    {
-      article_id: "abcde",
-      title: "GTA VI Trailer out: Much to look forward to?",
-      author: "Jeff Bob",
-      company: "Tailor News",
-      verified: false,
-      live: false,
-      image_uri:
-        "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTVA7faN3W4oHcL_WF5sUYtMdBDjMld_erQuQ&s",
-    },
-    {
-      article_id: "abcde",
-      title: "GTA VI Trailer out: Much to look forward to?",
-      author: "Jeff Bob",
-      company: "Tailor News",
-      verified: false,
-      live: false,
-      image_uri:
-        "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTVA7faN3W4oHcL_WF5sUYtMdBDjMld_erQuQ&s",
-    },
-    {
-      article_id: "abcde",
-      title: "GTA VI Trailer out: Much to look forward to?",
-      author: "Jeff Bob",
-      company: "Tailor News",
-      verified: false,
-      live: false,
-      image_uri:
-        "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTVA7faN3W4oHcL_WF5sUYtMdBDjMld_erQuQ&s",
+        "https://cdn.britannica.com/66/226766-138-235EFD92/who-is-President-Joe-Biden.jpg?w=800&h=450&c=crop",
     },
     {
       article_id: "abcde",
@@ -164,7 +136,6 @@ const Home = () => {
 
   const onPress = (route: RouteProps) => {
     setSelectedIndex(route.id);
-    console.log("press");
     getData();
   };
 
@@ -177,20 +148,9 @@ const Home = () => {
   };
 
   const getData = () => {
-    console.log("getting data");
     if (!isRefresh) {
       setisRefresh(true);
     }
-  };
-
-  const renderFooter = () => {
-    return (
-      <View>
-        {isRefresh ? (
-          <ActivityIndicator color="black" className="m-14" />
-        ) : null}
-      </View>
-    );
   };
 
   const ItemView = ({
@@ -277,26 +237,52 @@ const Home = () => {
   }) => {
     router.push("article/" + item.article_id);
   };
-
-  const handleScrollToTop = (e: any) => {
-    // if (yOffset <= 0 && e.nativeEvent.contentOffset.y > 0) {
-    //   // When user is just normally scrolling
-    // } else if (yOffset > 0 && e.nativeEvent.contentOffset.y <= 0) {
-    //   if (!loading.current) {
-    //     isReload.current = true;
-    //     console.log("ran handleScrollToTop");
-    //     getData();
-    //   }
-    // }
-    // setyOffset(e.nativeEvent.contentOffset.y);
+  const getRandomInt = (max: number) => {
+    return Math.floor(Math.random() * max);
   };
+
+  const handleScroll = (e: any) => {
+    // To mimic effect of infinite scroll
+    if (
+      e.nativeEvent.contentOffset.y > yOffset &&
+      e.nativeEvent.contentOffset.y > 0 &&
+      yOffset > 0
+    ) {
+      // when scrolling down
+      console.log(e.nativeEvent.contentOffset.y);
+      console.log(yOffset);
+      if (!isRefresh) {
+        setDataSource([
+          ...dataSource,
+          {
+            article_id: "abcde",
+            title: "GTA VI Trailers out: Much to look forward to?",
+            author: "Jeff Bob",
+            company: "Tailor News",
+            verified: false,
+            live: false,
+            image_uri:
+              "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTVA7faN3W4oHcL_WF5sUYtMdBDjMld_erQuQ&s",
+          },
+        ]);
+      }
+    }
+    setyOffset(e.nativeEvent.contentOffset.y);
+  };
+
+  const [userDialogVisible, setUserDialogVisible] = useState(false);
 
   return (
     <SafeAreaView className="bg-white h-full w-full flex-1">
       <View className="flex flex-col gap-3 mb-2">
-        <View className="border-b-[0.5px] py-2 border-tertiary px-4">
+        <View className="border-b-[0.5px] pb-2 border-tertiary px-4">
           <View className="flex flex-row w-full justify-center items-center">
-            <TouchableOpacity className="mr-auto" onPress={() => {}}>
+            <TouchableOpacity
+              className="mr-auto"
+              onPress={() => {
+                setUserDialogVisible(true);
+              }}
+            >
               <Image
                 source={{
                   uri: "https://t4.ftcdn.net/jpg/06/08/55/73/360_F_608557356_ELcD2pwQO9pduTRL30umabzgJoQn5fnd.jpg",
@@ -342,19 +328,50 @@ const Home = () => {
           ) : null}
         </View>
       }
+      <Dialog
+        isVisible={userDialogVisible}
+        onBackdropPress={() => setUserDialogVisible(!userDialogVisible)}
+      >
+        <View className="flex flex-col">
+          <View className="flex flex-row items-center">
+            <Image
+              source={{
+                uri: "https://t4.ftcdn.net/jpg/06/08/55/73/360_F_608557356_ELcD2pwQO9pduTRL30umabzgJoQn5fnd.jpg",
+              }}
+              className="w-8 h-8 rounded-full"
+            />
+            <Text className="ml-3 text-base font-semibold">James Baker</Text>
+            <View className="ml-auto flex flex-row">
+              <Image
+                source={images.logo}
+                className="w-8 h-8"
+                resizeMode="contain"
+              />
+              <Text className="mt-auto text-primary text-xs">PRO</Text>
+            </View>
+          </View>
+          <View className="flex flex-col mt-2">
+            <TouchableOpacity className="border-2 mt-1 py-2 px-3 rounded-2xl">
+              <Text className="text-base">Change email</Text>
+            </TouchableOpacity>
+            <TouchableOpacity className="border-2 mt-1 py-2 px-3 rounded-2xl">
+              <Text className="text-base">Change password</Text>
+            </TouchableOpacity>
+            <TouchableOpacity className="border-2 mt-1 py-2 px-3 rounded-2xl border-red-600">
+              <Text className="text-base text-red-600">Delete account</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Dialog>
 
       <FlatList
+        showsVerticalScrollIndicator={false}
         data={dataSource}
         keyExtractor={(item, index) => index.toString()}
         ItemSeparatorComponent={ItemSeperatorView}
         renderItem={ItemView}
-        ListFooterComponent={renderFooter}
-        onEndReached={() => {
-          getData();
-        }}
-        onEndReachedThreshold={0.5}
         className="px-4"
-        onScroll={handleScrollToTop}
+        onScroll={handleScroll}
       />
     </SafeAreaView>
   );
