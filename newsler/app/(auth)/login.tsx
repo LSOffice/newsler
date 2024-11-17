@@ -72,7 +72,7 @@ const Login = () => {
               <Text className="text-lg text-black font-light">
                 Don't have an account?
               </Text>
-              <Link href="/login" className="font-medium text-lg text-primary">
+              <Link href="/signup" className="font-medium text-lg text-primary">
                 Sign up
               </Link>
             </View>
