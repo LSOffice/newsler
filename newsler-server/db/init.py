@@ -12,6 +12,18 @@ mydb = mysql.connect(
 )
 
 
+def auth_update_user_session(query: dict):
+    return auth.update_user_session(mydb, query=query)
+
+
+def auth_update_user_session_token_only(query: dict):
+    return auth.update_user_session_token_only(mydb, query=query)
+
+
+def auth_return_user_object_from_user_id(query: dict):
+    return auth.return_user_object_from_user_id(mydb, query=query)
+
+
 def auth_get_session_from_user_id(query: dict):
     return auth.get_session_from_user_id(mydb, query=query)
 
