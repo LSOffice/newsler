@@ -58,43 +58,6 @@ async def rank_interactions(interactions: list):
         pass
 
 
-async def recent_x_articles_interacted_with_ranked(user_id: str, x: int) -> list:
-    if not str(user_id) in sample_interactions_db:
-        return []
-    reaction_weighting = 0.7
-    view_weighting = 0.1
-    full_scroll_weighting = 0.5
-    comment_weighting = 0.7
-    saved_weighting = 0.97
-
-    user_interaction_db = sample_interactions_db[str(user_id)]
-    articles = []
-    for article_id in user_interaction_db:
-        recency_factor = 14  # days, how many days is considered recent
-        total_weighting = 0
-
-        for interaction in user_interaction_db[str(article_id)]:
-
-            if interaction["timestamp"] >= datetime.now().timestamp() - 1209600:
-                if interaction["type"] == "view":
-                    total_weighting += view_weighting
-                elif interaction["type"] == "full_scroll":
-                    total_weighting += full_scroll_weighting
-                elif interaction["type"] == "comment":
-                    total_weighting += comment_weighting
-                elif interaction["type"] == "reaction":
-                    if interaction["reaction_sentiment"] > 0:
-                        total_weighting += reaction_weighting
-                elif interaction["type"] == "save":
-                    total_weighting += saved_weighting
-        if total_weighting != 0:
-            articles.append(
-                {"articleId": str(article_id), "weighting": total_weighting}
-            )
-
-    return sorted(articles, key=lambda d: d["weighting"], reverse=True)
-
-
 async def is_logged_in(req: Request) -> list:
     try:
         session_token = req.headers["Authorization"]
@@ -115,28 +78,6 @@ async def is_logged_in(req: Request) -> list:
             return [True, True]
     # Has account, invalid credentials
     return [True, False]
-
-
-@router.get("/feed")
-async def feed(body: Feed, auth_headers: list = Depends(is_logged_in)):
-    user_id = body.user_id
-    if not auth_headers[1]:
-        raise HTTPException(status_code=401, detail="Redirect /login")
-    if not auth_headers[0]:
-        raise HTTPException(status_code=401, detail="Redirect /signup")
-    if user_id == None:
-        raise HTTPException(status_code=400, detail="Invalid user id")
-
-
-@router.get("/headers")
-async def headers(body: Feed, auth_headers: list = Depends(is_logged_in)):
-    user_id = body.user_id
-    if not auth_headers[1]:
-        raise HTTPException(status_code=401, detail="Redirect /login")
-    if not auth_headers[0]:
-        raise HTTPException(status_code=401, detail="Redirect /signup")
-    if user_id == None:
-        raise HTTPException(status_code=400, detail="Invalid user id")
 
 
 @router.post("/")
