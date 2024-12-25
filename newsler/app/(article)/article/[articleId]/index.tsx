@@ -18,6 +18,7 @@ import {
   router,
   useGlobalSearchParams,
   useLocalSearchParams,
+  useNavigation,
 } from "expo-router";
 import images from "../../../../constants/images";
 import {
@@ -53,6 +54,96 @@ const ArticleDisplay = () => {
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
   const [isLoaded, setisLoaded] = useState(false);
   const [runningSave, setrunningSave] = useState(false);
+  const [timer, setTimer] = useState(0);
+
+  const back = async () => {
+    router.back();
+    try {
+      const response = await fetch(apiUrl + "/articles/view", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization:
+            "Bearer " + (await AsyncStorage.getItem("session_token")),
+        },
+        body: JSON.stringify({
+          article_id: articleId,
+          user_id: await AsyncStorage.getItem("userId"),
+          view_seconds: timer,
+        }),
+      });
+    } catch (e) {
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "An error occurred while saving!",
+        visibilityTime: 1000,
+      });
+    }
+  };
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setTimer((prevTimer) => prevTimer + 1);
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
+  const setReaction = async (e: any) => {
+    if (runningSave) {
+      return;
+    }
+    setrunningSave(true);
+    Toast.show({
+      type: "info",
+      text1: postSaved ? "Unsaving post!" : "Saving post!",
+      text2: "Give it a bit...",
+      visibilityTime: 200000,
+    });
+    try {
+      const response = await fetch(apiUrl + "/articles/save", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization:
+            "Bearer " + (await AsyncStorage.getItem("session_token")),
+        },
+        body: JSON.stringify({
+          article_id: articleId,
+          user_id: await AsyncStorage.getItem("userId"),
+          save: !postSaved,
+        }),
+      });
+      const responseJson = await response.json();
+      if (responseJson) {
+        setPostSaved(!postSaved);
+        Toast.show({
+          type: "success",
+          text1: postSaved ? "Post unsaved!" : "Post saved!",
+          text2: postSaved ? "" : "View in your saved posts",
+          visibilityTime: 1000,
+        });
+      } else {
+        Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: postSaved ? "Failed to unsave post!" : "Failed to save post!",
+          visibilityTime: 1000,
+        });
+      }
+      setrunningSave(false);
+    } catch (e) {
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: postSaved ? "Failed to unsave post!" : "Failed to save post!",
+        visibilityTime: 1000,
+      });
+    }
+  };
 
   const savePost = async (e: any) => {
     if (runningSave) {
@@ -151,9 +242,10 @@ const ArticleDisplay = () => {
           }
           const responseJson = await response.json();
           reloading = false;
+          console.log(responseJson);
           setnewsArticle(responseJson["article_info"]);
           for (let reaction of responseJson["reaction_info"]) {
-            if (reaction[4] == 5) {
+            if (reaction["interaction"] == 5) {
               setPostSaved(true);
             }
           }
@@ -181,7 +273,7 @@ const ArticleDisplay = () => {
       >
         <ScrollView>
           <View className="flex flex-row px-3 pt-2 items-center">
-            <TouchableOpacity onPress={() => router.back()}>
+            <TouchableOpacity onPress={back}>
               <LucideChevronLeft size={28} className="text-black" />
             </TouchableOpacity>
             <View className="ml-auto">

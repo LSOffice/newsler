@@ -28,7 +28,7 @@ const RootLayout = () => {
         />
         <Stack.Screen
           name="(article)/article/[articleId]/index"
-          options={{ headerShown: false }}
+          options={{ headerShown: false, gestureEnabled: false }}
         />
       </Stack>
       <Toast />
