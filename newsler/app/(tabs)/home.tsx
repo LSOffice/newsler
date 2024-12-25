@@ -28,43 +28,84 @@ import HorizontalScrollMenu, {
 } from "@nyashanziramasanga/react-native-horizontal-scroll-menu/src";
 import { router } from "expo-router";
 import { Dialog } from "@rneui/themed";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import Toast from "react-native-toast-message";
 
 const Home = () => {
   const [isRefresh, setisRefresh] = useState(false);
   const [dataSource, setDataSource] = useState([{}]);
-  const [offset, setOffset] = useState(1);
+  const [offset, setOffset] = useState(0);
   const [isListEnd, setIsListEnd] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [yOffset, setyOffset] = useState(0);
+  const [loadingNewPage, setloadingNewPage] = useState(false);
+
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
   useEffect(() => {
     getData();
   }, []);
 
   useEffect(() => {
-    if (isRefresh) {
-      setDataSource([]);
-      console.log("isRefresh");
-      fetch("https://dummyjson.com/products?offset=" + offset)
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.products.length > 0) {
-            setOffset(offset + 1);
-            if (selectedIndex == 0) {
-              setDataSource([...newsArticles]);
-            } else {
-              setDataSource([]);
-            }
-          } else {
-            setDataSource([]);
-            setIsListEnd(true);
-          }
-          setisRefresh(false);
-        })
-        .catch((error) => {
-          console.error(error);
+    const fetchData = async () => {
+      if (isRefresh) {
+        setDataSource([]);
+        Toast.show({
+          type: "info",
+          visibilityTime: 5000,
+          position: "bottom",
+          text1: "Your internet connection is slow",
+          text2: "Loading will take a while",
         });
-    }
+        try {
+          let loading = true;
+          while (loading) {
+            const response = await fetch(apiUrl + "/articles/feed", {
+              method: "POST",
+              headers: {
+                Accept: "application/json",
+                Authorization:
+                  "Bearer " + (await AsyncStorage.getItem("session_token")),
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                user_id: await AsyncStorage.getItem("userId"),
+                topic: "Trending",
+                page: 1,
+              }),
+            });
+            if (response.status === 308) {
+              const newResponse = await fetch(apiUrl + "/auth/refreshsession", {
+                method: "POST",
+                headers: {
+                  Accept: "application/json",
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  refresh_token: await AsyncStorage.getItem("refresh_token"),
+                  user_id: await AsyncStorage.getItem("userId"),
+                }),
+              });
+              const content = await newResponse.json();
+              await AsyncStorage.setItem(
+                "session_token",
+                content["session_token"],
+              );
+              continue;
+            }
+            loading = false;
+            const responseJson = await response.json();
+            setDataSource([...responseJson]);
+            setisRefresh(false);
+            setOffset(0);
+            setloadingNewPage(false);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    };
+    fetchData();
   }, [isRefresh]);
 
   const numOfTabs = 4;
@@ -88,49 +129,6 @@ const Home = () => {
     {
       id: 4,
       name: "Pop Culture",
-    },
-  ];
-
-  let newsArticles = [
-    {
-      article_id: "abc",
-      title: "Island School unveils new billion-dollar campus",
-      author: "Lorem Ipsum",
-      company: "BBC",
-      verified: true,
-      live: true,
-      image_uri:
-        "https://island.edu.hk/wp-content/uploads/2022/08/NAM_0019.jpg",
-    },
-    {
-      article_id: "abcd",
-      title: "Biden seeking re-election in 2024",
-      author: "Lorem Ipsum",
-      company: "BBC",
-      verified: true,
-      live: false,
-      image_uri:
-        "https://cdn.britannica.com/66/226766-138-235EFD92/who-is-President-Joe-Biden.jpg?w=800&h=450&c=crop",
-    },
-    {
-      article_id: "abcde",
-      title: "GTA VI Trailer out: Much to look forward to?",
-      author: "Jeff Bob",
-      company: "Tailor News",
-      verified: false,
-      live: false,
-      image_uri:
-        "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTVA7faN3W4oHcL_WF5sUYtMdBDjMld_erQuQ&s",
-    },
-    {
-      article_id: "abcde",
-      title: "GTA VI Trailer out: Much to look forward to?",
-      author: "Jeff Bob",
-      company: "Tailor News",
-      verified: false,
-      live: false,
-      image_uri:
-        "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTVA7faN3W4oHcL_WF5sUYtMdBDjMld_erQuQ&s",
     },
   ];
 
@@ -172,10 +170,17 @@ const Home = () => {
         className="border-[0.5px] rounded-2xl border-tertiary flex flex-col h-56"
       >
         <View className="h-full flex flex-col">
-          <Image
-            source={{ uri: item.image_uri }}
-            className="w-full h-full rounded-2xl absolute"
-          />
+          {item.image_uri ? (
+            <Image
+              source={{ uri: item.image_uri }}
+              className="w-full h-full rounded-t-2xl"
+            />
+          ) : (
+            <Image
+              source={{ uri: null }}
+              className="w-full h-full rounded-t-2xl"
+            />
+          )}
           <View className="flex flex-row items-center p-3">
             <BlinkDot duration={2000}>
               <View className="rounded-2xl w-3 h-3 bg-red-700" />
@@ -198,17 +203,24 @@ const Home = () => {
         className="border-[0.5px] rounded-2xl border-tertiary flex flex-col h-48"
       >
         <View className="h-3/4">
-          <Image
-            source={{ uri: item.image_uri }}
-            className="w-full h-full rounded-t-2xl"
-          />
+          {item.image_uri ? (
+            <Image
+              source={{ uri: item.image_uri }}
+              className="w-full h-full rounded-t-2xl"
+            />
+          ) : (
+            <Image
+              source={{ uri: null }}
+              className="w-full h-full rounded-t-2xl"
+            />
+          )}
         </View>
         <View className="h-1/4 bg-gray-200 rounded-b-2xl px-3 flex flex-col justify-center">
-          <Text numberOfLines={1} className="text-base font-medium">
+          <Text numberOfLines={1} className="text-sm font-medium">
             {item.title}
           </Text>
           <View className="flex flex-row gap-1 items-center">
-            <Text className="text-xs font-light">
+            <Text numberOfLines={1} className="text-xs font-light w-11/12">
               By {item.author}, {item.company}
             </Text>
             {item.verified ? (
@@ -241,32 +253,118 @@ const Home = () => {
     return Math.floor(Math.random() * max);
   };
 
-  const handleScroll = (e: any) => {
+  const handleScroll = async (e: any) => {
+    e.persist();
     // To mimic effect of infinite scroll
     if (
       e.nativeEvent.contentOffset.y > yOffset &&
       e.nativeEvent.contentOffset.y > 0 &&
       yOffset > 0
     ) {
-      // when scrolling down
-      console.log(e.nativeEvent.contentOffset.y);
-      console.log(yOffset);
-      if (!isRefresh) {
-        setDataSource([
-          ...dataSource,
-          {
-            article_id: "abcde",
-            title: "GTA VI Trailers out: Much to look forward to?",
-            author: "Jeff Bob",
-            company: "Tailor News",
-            verified: false,
-            live: false,
-            image_uri:
-              "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTVA7faN3W4oHcL_WF5sUYtMdBDjMld_erQuQ&s",
-          },
-        ]);
+      if (e.nativeEvent.contentOffset.y >= 1700 && offset == 0) {
+        setOffset(1);
+        try {
+          let reloading = true;
+          while (reloading) {
+            const response = await fetch(apiUrl + "/articles/feed", {
+              method: "POST",
+              headers: {
+                Accept: "application/json",
+                "Content-Type": "application/json",
+                Authorization:
+                  "Bearer " + (await AsyncStorage.getItem("session_token")),
+              },
+              body: JSON.stringify({
+                user_id: await AsyncStorage.getItem("userId"),
+                topic: "Trending",
+                page: 2,
+              }),
+            });
+            if (response.status === 308) {
+              const newResponse = await fetch(apiUrl + "/auth/refreshsession", {
+                method: "POST",
+                headers: {
+                  Accept: "application/json",
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  refresh_token: await AsyncStorage.getItem("refresh_token"),
+                  user_id: await AsyncStorage.getItem("userId"),
+                }),
+              });
+              const content = await newResponse.json();
+              await AsyncStorage.setItem(
+                "session_token",
+                content["session_token"],
+              );
+              continue;
+            }
+            const responseJson = await response.json();
+            setDataSource([...dataSource, ...responseJson]);
+            reloading = false;
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      } else if (
+        e.nativeEvent.contentOffset.y >= 1700 + offset * 1000 &&
+        !loadingNewPage
+      ) {
+        setloadingNewPage(true);
+        const offsetValue = offset;
+        setOffset(offsetValue + 1);
+        try {
+          let reloading = true;
+          while (reloading) {
+            const response = await fetch(apiUrl + "/articles/feed", {
+              method: "POST",
+              headers: {
+                Accept: "application/json",
+                "Content-Type": "application/json",
+                Authorization:
+                  "Bearer " + (await AsyncStorage.getItem("session_token")),
+              },
+              body: JSON.stringify({
+                user_id: await AsyncStorage.getItem("userId"),
+                topic: "Trending",
+                page: offsetValue + 2,
+              }),
+            });
+            if (response.status === 308) {
+              const newResponse = await fetch(apiUrl + "/auth/refreshsession", {
+                method: "POST",
+                headers: {
+                  Accept: "application/json",
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  refresh_token: await AsyncStorage.getItem("refresh_token"),
+                  user_id: await AsyncStorage.getItem("userId"),
+                }),
+              });
+              const content = await newResponse.json();
+              await AsyncStorage.setItem(
+                "session_token",
+                content["session_token"],
+              );
+              continue;
+            }
+            const responseJson = await response.json();
+            setDataSource([...dataSource, ...responseJson]);
+            reloading = false;
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    } else {
+      // going up
+      if (yOffset < 0) {
+        setisRefresh(true);
+        console.log("swipe up and refresh");
       }
     }
+
     setyOffset(e.nativeEvent.contentOffset.y);
   };
 
@@ -306,19 +404,21 @@ const Home = () => {
             </TouchableOpacity>
           </View>
         </View>
-        <HorizontalScrollMenu
-          items={NavigationTabs}
-          onPress={onPress}
-          selected={selectedIndex}
-          activeBackgroundColor={`${selectedIndex == 0 ? "#FCA311" : "#275F6F"}`}
-          activeTextColor={`${selectedIndex == 0 ? "black" : "white"}`}
-          buttonStyle={{
-            borderColor: "white",
-          }}
-          textStyle={{
-            color: "#275F6F",
-          }}
-        />
+        <View className="flex flex-row items-center">
+          <HorizontalScrollMenu
+            items={NavigationTabs}
+            onPress={onPress}
+            selected={selectedIndex}
+            activeBackgroundColor={`${selectedIndex == 0 ? "#FCA311" : "#275F6F"}`}
+            activeTextColor={`${selectedIndex == 0 ? "black" : "white"}`}
+            buttonStyle={{
+              borderColor: "white",
+            }}
+            textStyle={{
+              color: "#275F6F",
+            }}
+          />
+        </View>
       </View>
 
       {

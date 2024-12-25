@@ -130,7 +130,7 @@ def update_user_recommendation_index(db, query: dict):
     age = query.get("age", user_recommendation_index[4])
     gender = query.get("gender", user_recommendation_index[5])
     preferred_format = query.get("preferred_format", user_recommendation_index[6])
-    sql = "UPDATE user_article_interactions SET device_type=%s, geolocation=%s, topical_interests=%s, age=%s, gender=%s, preferred_format=%s  WHERE (user_id = %s);"
+    sql = "UPDATE user_recommendation_index SET device_type=%s, geolocation=%s, topical_interests=%s, age=%s, gender=%s, preferred_format=%s  WHERE (user_id = %s);"
     val = (
         device_type,
         geolocation,

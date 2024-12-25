@@ -34,6 +34,7 @@ const TabsLayout = () => {
           borderTopColor: "#D3D3D3",
           height: 70,
         },
+        animation: "shift",
       }}
     >
       <Tabs.Screen

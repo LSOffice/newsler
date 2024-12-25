@@ -139,7 +139,11 @@ async def login(login: Credentials, request: Request):
             }
         )
 
-        return {"refresh_token": refresh_token, "session_token": session_token}
+        return {
+            "refresh_token": refresh_token,
+            "session_token": session_token,
+            "user_id": user_id,
+        }
 
     # if session doesn't exist already, it goes here
 
@@ -155,7 +159,8 @@ async def login(login: Credentials, request: Request):
         }
     )
 
-    client_host = request.client.host
+    # client_host = request.client.host
+    client_host = "182.239.127.137"
     response = requests.get(
         "https://geolocation-db.com/json/" + client_host + "&position=true"
     ).json()
@@ -163,7 +168,9 @@ async def login(login: Credentials, request: Request):
         {
             "user_id": user_id,
             "device_type": "iOS",
-            "geolocation": response["latitude"] + ", " + response["longitude"],
+            "geolocation": str(response["latitude"])
+            + ", "
+            + str(response["longitude"]),
         }
     )
 
@@ -193,7 +200,9 @@ async def signup(signupInfo: Credentials, request: Request):
         signupInfo.email,
     ):
         raise HTTPException(status_code=400, detail="Invalid credentials")
-    client_host = request.client.host
+
+    # client_host = request.client.host
+    client_host = "182.239.127.137"
 
     response = requests.get(
         "https://geolocation-db.com/json/" + client_host + "&position=true"
@@ -221,7 +230,7 @@ async def signup(signupInfo: Credentials, request: Request):
         {
             "user_id": user_id,
             "device_type": "iOS",
-            "geolocation": latitude + ", " + longitude,
+            "geolocation": str(latitude) + ", " + str(longitude),
         }
     )
 

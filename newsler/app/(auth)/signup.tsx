@@ -1,9 +1,11 @@
 import { View, Text, ScrollView, Image, TouchableOpacity } from "react-native";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import images from "../../constants/images";
 import FormField from "../../components/FormField";
 import { Link, router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import Toast from "react-native-toast-message";
 
 const SignUp = () => {
   const [form, setForm] = useState({
@@ -11,9 +13,86 @@ const SignUp = () => {
     password: "",
   });
   const [isSubmitting, setisSubmitting] = useState(false);
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
-  const submit = () => {
-    router.push("/home");
+  useEffect(() => {
+    const fetchUserId = async () => {
+      const userId = await AsyncStorage.getItem("userId");
+      if (userId !== null) {
+        router.push("/login");
+      }
+    };
+
+    const result = fetchUserId().catch(console.error);
+  });
+
+  const submit = async (e: any) => {
+    console.log(e);
+
+    if (form.email == "" || form.password == "") {
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Email or password field empty",
+      });
+      return;
+    }
+
+    if (form.password.length < 8) {
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Password has to be more than 8 characters",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(apiUrl + "/auth/signup", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(form),
+      });
+
+      const content = await response.json();
+      if (!content["signup"]) {
+        alert("Signup failed");
+        return;
+      }
+      await AsyncStorage.setItem("userId", content["user_id"]);
+
+      const loginResponse = await fetch(apiUrl + "/auth/login", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(form),
+      });
+
+      const loginContent = await loginResponse.json();
+      if (loginResponse.status != 200) {
+        alert("Login failed");
+        return;
+      }
+      await AsyncStorage.setItem(
+        "session_token",
+        loginContent["session_token"],
+      );
+      // user change
+      await AsyncStorage.setItem("userId", loginContent["user_id"]);
+      await AsyncStorage.setItem(
+        "refresh_token",
+        loginContent["refresh_token"],
+      );
+      router.push("/home");
+    } catch (e) {
+      console.error(e);
+      alert("An error occurred. Please try again");
+    }
   };
 
   return (
