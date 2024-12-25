@@ -6,7 +6,7 @@ import bcrypt
 salt = open("config.txt", "r").readlines()[0].replace("salt=", "").encode()
 
 
-def user_article_view_create(db, query: dict):
+async def user_article_view_create(db, query: dict):
     cursor = db.cursor()
 
     reaction_id = str(uuid4())
@@ -287,6 +287,92 @@ def get_article_interaction_information(db, query: dict):
 
     return list(reaction_dbs.values())
 
+def get_article_details_and_interactions(db, query: dict):
+    # really optimised single query to search for articles and interactions! (7s -> 3s)
+    article_id = query["article_id"]
+
+    sql = """
+    SELECT 
+        a.article_id, 
+        a.title, 
+        a.body, 
+        a.author_id, 
+        a.created_at, 
+        a.topic, 
+        a.country, 
+        a.content_form, 
+        a.image_uri,
+        au.author_name,
+        ag.agency_name,
+        uai.user_id, 
+        uai.reaction_id, 
+        uai.timestamp, 
+        uai.interaction, 
+        avi.view_seconds,
+        asi.scroll_depth,
+        aci.comment,
+        ari.reaction_sentiment
+    FROM 
+        articles a
+    JOIN 
+        authors au ON a.author_id = au.author_id
+    JOIN 
+        agencies ag ON au.agency_id = ag.agency_id
+    LEFT JOIN 
+        user_article_interactions uai ON uai.article_id = a.article_id
+    LEFT JOIN 
+        article_view_information avi ON uai.reaction_id = avi.reaction_id
+    LEFT JOIN 
+        article_scroll_information asi ON uai.reaction_id = asi.reaction_id
+    LEFT JOIN 
+        article_comment_information aci ON uai.reaction_id = aci.reaction_id
+    LEFT JOIN
+        article_reaction_information ari ON uai.reaction_id = ari.reaction_id
+    WHERE 
+        a.article_id = %s
+    """
+
+    cursor = db.cursor()
+    cursor.execute(sql, (article_id,))
+
+    results = cursor.fetchall()
+
+    article = None
+    interactions = []
+
+    for row in results:
+        # Extract article details
+        if not article:
+            article = {
+                "article_id": row[0],
+                "title": row[1].replace("\n", ""),
+                "author": row[9],
+                "body": row[2],
+                "company": row[10],
+                "created_at": row[4],
+                "verified": True,
+                "live": False,
+                "image_uri": row[8],
+            }
+
+        # Extract interaction details
+        if row[11] is not None:  # Check if interaction data exists
+            interaction = {
+                "user_id": row[11],
+                "reaction_id": row[12],
+                "timestamp": row[13],
+                "interaction": row[14],
+                "view_seconds": row[15] if row[15] is not None else None,
+                "scroll_depth": row[16] if row[16] is not None else None,
+                "comment": row[17] if row[17] is not None else None,
+                "reaction_sentiment": row[18] if row[18] is not None else None,
+            }
+            interactions.append(interaction)
+
+    return {
+        "article_info": article,
+        "reaction_info": interactions
+    }
 
 def get_articles_of_topic(db, query: dict):
     cursor = db.cursor()
@@ -297,34 +383,79 @@ def get_articles_of_topic(db, query: dict):
 
 
 def get_all_articles(db):
+    # cursor = db.cursor()
+    # sql = "SELECT * FROM articles"
+    # cursor.execute(sql)
+    # articles = cursor.fetchall()
+    # sql = "SELECT * FROM authors"
+    # cursor.execute(sql)
+    # authors = cursor.fetchall()
+    # sql = "SELECT * FROM agencies"
+    # cursor.execute(sql)
+    # agencies = cursor.fetchall()
+    # authors = {
+    #     author_id: {"agency_id": agency_id, "author_name": author_name}
+    #     for author_id, agency_id, author_name in authors
+    # }
+    # agencies = {agency_id: agency_name for agency_id, agency_name in agencies}
+    # articles = [
+    #     {
+    #         "article_id": article_id,
+    #         "title": title.replace("\n", ""),
+    #         "author": authors[author_id]["author_name"],
+    #         "company": agencies[authors[author_id]["agency_id"]],
+    #         "created_at": created_at,
+    #         "verified": True,
+    #         "live": False,
+    #         "image_uri": image_uri,
+    #     }
+    #     for article_id, title, body, author_id, created_at, topic, country, content_form, image_uri in articles
+    # ]
+    # return articles
+
+    # optimised version underneath
+
     cursor = db.cursor()
-    sql = "SELECT * FROM articles"
+
+    sql = """
+    SELECT 
+        a.article_id, 
+        a.title, 
+        a.body, 
+        a.author_id, 
+        a.created_at, 
+        a.topic, 
+        a.country, 
+        a.content_form, 
+        a.image_uri,
+        au.author_name,
+        ag.agency_name
+    FROM 
+        articles a
+    JOIN 
+        authors au ON a.author_id = au.author_id
+    JOIN 
+        agencies ag ON au.agency_id = ag.agency_id;
+    """
+
     cursor.execute(sql)
-    articles = cursor.fetchall()
-    sql = "SELECT * FROM authors"
-    cursor.execute(sql)
-    authors = cursor.fetchall()
-    sql = "SELECT * FROM agencies"
-    cursor.execute(sql)
-    agencies = cursor.fetchall()
-    authors = {
-        author_id: {"agency_id": agency_id, "author_name": author_name}
-        for author_id, agency_id, author_name in authors
-    }
-    agencies = {agency_id: agency_name for agency_id, agency_name in agencies}
+    results = cursor.fetchall()
+
     articles = [
         {
-            "article_id": article_id,
-            "title": title.replace("\n", ""),
-            "author": authors[author_id]["author_name"],
-            "company": agencies[authors[author_id]["agency_id"]],
-            "created_at": created_at,
+            "article_id": row[0],
+            "title": row[1].replace("\n", ""),
+            "author": row[9],
+            "company": row[10],
+            "created_at": row[4],
             "verified": True,
             "live": False,
-            "image_uri": image_uri,
+            "image_uri": row[8],
         }
-        for article_id, title, body, author_id, created_at, topic, country, content_form, image_uri in articles
+        for row in results
     ]
+    
+
     return articles
 
 
@@ -381,6 +512,7 @@ def get_saved_articles(db, query: dict):
     ]
     print(articles)
     return articles
+
 
 
 def get_article_from_article_id(db, query: dict):

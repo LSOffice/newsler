@@ -7,6 +7,7 @@ import pycountry
 import bcrypt
 from ..db.init import (
     articles_get_all_articles,
+    articles_get_article_details_and_interactions,
     articles_get_article_from_article_id,
     articles_get_article_interaction_information,
     articles_get_articles_of_topic,
@@ -15,6 +16,7 @@ from ..db.init import (
     articles_get_users_article_interactions,
     articles_get_x_user_article_interactions,
     articles_user_article_comment_create,
+    articles_user_article_view_create,
     articles_user_save_article,
     articles_user_unsave_article,
     auth_get_user_recommendation_index,
@@ -39,6 +41,11 @@ class Feed(BaseModel):
 class Article(BaseModel):
     article_id: str | None = None
     user_id: str | None = None
+
+class ArticleView(BaseModel):
+    article_id: str | None = None
+    user_id: str | None = None
+    view_seconds: int | None = None
 
 
 class ArticleSaveReaction(BaseModel):
@@ -275,20 +282,25 @@ async def article_information(
 ):
     if not auth_headers:
         raise HTTPException(status_code=401, detail="Unauthorised")
-    print(datetime.now().timestamp())
-    reaction_info = articles_get_article_interaction_information(
-        {"article_id": body.article_id, "user_id": body.user_id}
-    )
-    print(datetime.now().timestamp())
-    article_info = articles_get_article_from_article_id({"article_id": body.article_id})
-    print(datetime.now().timestamp())
-    return {
-        "article_info": article_info,
-        "reaction_info": reaction_info,
-    }
+    return articles_get_article_details_and_interactions({"article_id": body.article_id})
 
 
-@router.post("/save")
+@router.post("/view")
+async def article_view(
+    body: ArticleView, auth_headers: bool = Depends(is_logged_in)
+):
+    article_id = body.article_id
+    user_id = body.user_id
+    vs = body.view_seconds
+    if not auth_headers:
+        raise HTTPException(status_code=401, detail="Unauthorised")
+
+    # TODO: potentially unsafe point, any token can use any user id)
+    await articles_user_article_view_create({"user_id": user_id, "article_id": article_id, "view_seconds": vs})
+    print('done')
+    return True
+
+@router.post("/view")
 async def article_save(
     body: ArticleSaveReaction, auth_headers: bool = Depends(is_logged_in)
 ):
@@ -306,7 +318,6 @@ async def article_save(
         articles_user_unsave_article({"user_id": user_id, "article_id": article_id})
 
     return True
-
 
 @router.post("/saved")
 async def saved(body: Headers, auth_headers: bool = Depends(is_logged_in)):

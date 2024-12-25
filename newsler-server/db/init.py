@@ -8,15 +8,23 @@ import time
 load_dotenv()
 
 
-def articles_user_article_view_create(query: dict):
+async def articles_user_article_view_create(query: dict):
     mydb = mysql.connect(
         host=os.getenv("DB_HOST"),
         database=os.getenv("DB_DATABASE"),
         user=os.getenv("DB_USER"),
         password=os.getenv("DB_PASSWORD"),
     )
-    return articles.user_article_view_create(mydb, query=query)
+    return await articles.user_article_view_create(mydb, query=query)
 
+def articles_get_article_details_and_interactions(query: dict):
+    mydb = mysql.connect(
+        host=os.getenv("DB_HOST"),
+        database=os.getenv("DB_DATABASE"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+    )
+    return articles.get_article_details_and_interactions(mydb, query=query)
 
 def articles_get_all_articles():
     mydb = mysql.connect(
