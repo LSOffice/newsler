@@ -28,11 +28,10 @@ def is_session_token_valid(db, query: dict):
 
     sql = "SELECT * FROM sessions WHERE session_token=%s"
     cursor.execute(sql, (bcrypt.hashpw(session_token.encode(), salt).decode(),))
-
     results = cursor.fetchall()
 
     if len(results) > 0:
-        return [True, datetime.fromtimestamp(results[0][4]) > datetime.now()]
+        return [True, datetime.fromtimestamp(results[0][4]) > datetime.now(), results[0][0]]
     else:
         return [False]
 
@@ -177,21 +176,7 @@ def search_user_by_username(db, query: dict) -> list:
 
 def create_session(db, session: dict):
     cursor = db.cursor()
-    sessions = get_session_from_user_id(db, {"user_id": session["user_id"]})
-    if sessions[0]:
-        # if a current session already exists, check session_token valid, and if valid refresh token provided update session_token
-        pass
-
-    if session["refresh_token"]:
-        query = "SELECT * FROM sessions WHERE refresh_token = %s"
-        cursor.execute(query, (session["refresh_token"],))
-        results = cursor.fetchall()
-        if len(results) == 1:
-            print(results[0])
-
     sql = "INSERT INTO sessions (user_id, refresh_token, refreshExpiresAt, session_token, sessionExpiresAt) VALUES (%s, %s, %s, %s, %s)"
-    refresh_token = str(uuid.uuid4())
-    session_token = str(uuid.uuid4())
     val = (
         session["user_id"],
         session["refresh_token"],
@@ -201,5 +186,3 @@ def create_session(db, session: dict):
     )
     cursor.execute(sql, val)
     db.commit()
-
-    return refresh_token, session_token

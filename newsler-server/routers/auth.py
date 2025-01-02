@@ -138,26 +138,19 @@ async def login(login: Credentials, request: Request):
                 "user_id": user_id,
             }
         )
-
-        return {
-            "refresh_token": refresh_token,
-            "session_token": session_token,
-            "user_id": user_id,
-        }
-
+    else:
     # if session doesn't exist already, it goes here
-
-    session_token = str(uuid4())
-    refresh_token = str(uuid4())
-    refresh_token, session_token = auth_create_session(
-        {
-            "user_id": user_id,
-            "refresh_token": bcrypt.hashpw(refresh_token.encode(), salt).decode(),
-            "refreshExpiresAt": int(time_now) + 120 * 86400,
-            "session_token": bcrypt.hashpw(session_token.encode(), salt).decode(),
-            "sessionExpiresAt": int(time_now) + 15 * 60,
-        }
-    )
+        session_token = str(uuid4())
+        refresh_token = str(uuid4())
+        auth_create_session(
+            {
+                "user_id": user_id,
+                "refresh_token": bcrypt.hashpw(refresh_token.encode(), salt).decode(),
+                "refreshExpiresAt": int(time_now) + 120 * 86400,
+                "session_token": bcrypt.hashpw(session_token.encode(), salt).decode(),
+                "sessionExpiresAt": int(time_now) + 15 * 60,
+            }
+        )
 
     # client_host = request.client.host
     client_host = "182.239.127.137"

@@ -8,7 +8,7 @@ def get_users_based_on_rec_criteria(db, query: dict):
     users = cursor.fetchall()
 
     if "age" in query:
-        condition = lambda x: (abs(x[4] - query["age"]) > 7) or not x[4] == -1
+        condition = lambda x: (abs(x[4] - query["age"]) > 7) or x[4] == -1
         users = list(filter(lambda x: not condition(x), users))
 
     if "device_type" in query:

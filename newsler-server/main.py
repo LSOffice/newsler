@@ -2,9 +2,7 @@ from typing import Union
 from fastapi.concurrency import asynccontextmanager
 from pydantic import BaseModel
 from fastapi import FastAPI
-from .routers import everything
-from .routers import articles
-from .routers import auth
+from .routers import everything, articles, auth, edu
 import os
 import asyncio
 from .db import init
@@ -13,6 +11,7 @@ app = FastAPI()
 app.include_router(everything.router)
 app.include_router(articles.router)
 app.include_router(auth.router)
+app.include_router(edu.router)
 
 
 class Item(BaseModel):

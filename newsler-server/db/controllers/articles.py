@@ -14,7 +14,7 @@ async def user_article_view_create(db, query: dict):
     val = (
         query["user_id"],
         reaction_id,  # create new reaction id
-        datetime.now().timestamp(),
+        int(datetime.now().timestamp()),
         query["article_id"],
         1,
     )
@@ -23,12 +23,11 @@ async def user_article_view_create(db, query: dict):
     sql = "INSERT INTO article_view_information (reaction_id, view_seconds) VALUES (%s, %s)"
     val = (reaction_id, query["view_seconds"])
     cursor.execute(sql, val)
+
     db.commit()
 
-    return True
 
-
-def user_article_scroll_complete(db, query: dict):
+async def user_article_scroll_complete(db, query: dict):
     cursor = db.cursor()
 
     reaction_id = str(uuid4())
@@ -36,7 +35,7 @@ def user_article_scroll_complete(db, query: dict):
     val = (
         query["user_id"],
         reaction_id,  # create new reaction id
-        datetime.now().timestamp(),
+        int(datetime.now().timestamp()),
         query["article_id"],
         2,
     )
@@ -47,8 +46,6 @@ def user_article_scroll_complete(db, query: dict):
     cursor.execute(sql, val)
     db.commit()
 
-    return True
-
 
 def user_article_comment_create(db, query: dict):
     cursor = db.cursor()
@@ -58,7 +55,7 @@ def user_article_comment_create(db, query: dict):
     val = (
         query["user_id"],
         reaction_id,  # create new reaction id
-        datetime.now().timestamp(),
+        int(datetime.now().timestamp()),
         query["article_id"],
         3,
     )
@@ -73,30 +70,145 @@ def user_article_comment_create(db, query: dict):
 
     return True
 
-
-def user_article_reaction_create(db, query: dict):
+async def user_set_age_and_gender(db, query: dict):
     cursor = db.cursor()
+    headers = query['headers'][2:]
 
-    reaction_id = str(uuid4())
-    sql = "INSERT INTO user_article_interactions (user_id, reaction_id, timestamp, article_id, interaction) VALUES (%s, %s, %s, %s, %s)"
-    val = (
-        query["user_id"],
-        reaction_id,  # create new reaction id
-        datetime.now().timestamp(),
-        query["article_id"],
-        4,
-    )
-    cursor.execute(sql, val)
+    things = {
+        "Architecture": {
+            "age": 45,
+            "gender": "M"
+        },
+        "Art": {
+            "age": 38,
+            "gender": "W"
+        },
+        "Business": {
+            "age": 42,
+            "gender": "M"
+        },
+        "Crime": {
+            "age": 48,
+            "gender": "M"
+        },
+        "Entertainment": {
+            "age": 32,
+            "gender": "W"
+        },
+        "Health": {
+            "age": 45,
+            "gender": "W"
+        },
+        "Law": {
+            "age": 45,
+            "gender": "M"
+        },
+        "Lifestyle": {
+            "age": 35,
+            "gender": "W"
+        },
+        "Politics": {
+            "age": 50,
+            "gender": "M"
+        },
+        "Sports": {
+            "age": 38,
+            "gender": "M"
+        },
+        "Technology": {
+            "age": 30,
+            "gender": "M"
+        },
+    }
 
-    sql = "INSERT INTO article_reaction_information (reaction_id, reaction_sentiment) VALUES (%s, %s)"
-    val = (reaction_id, query["reaction_sentiment"])
-    cursor.execute(sql, val)
+    totalAge = 0
+    genderCount = {
+        "M": 0,
+        "W": 0
+    }
+    
+    for header in headers:
+        totalAge += things[header]['age']
+        genderCount[things[header]['gender']] += 1
+    
+    sql = """
+        UPDATE user_recommendation_index SET age = %s, gender = %s WHERE (user_id = %s)
+    """
+    cursor.execute(sql, (totalAge / len(headers), sorted(genderCount.items())[0][0], query["user_id"]))
     db.commit()
 
-    return True
 
 
-def user_save_article(db, query: dict):
+def user_article_reaction_create(db, query: dict):
+    cursor = db.cursor(buffered=True)
+    reaction_id = str(uuid4())
+        # Check for existing interaction (one query with JOIN)
+    check_sql = """
+        SELECT *
+        FROM user_article_interactions uai
+        JOIN article_reaction_information ari ON uai.reaction_id = ari.reaction_id
+        WHERE uai.user_id = %s AND uai.article_id = %s AND interaction = 4
+    """
+    cursor.execute(check_sql, (query["user_id"], query["article_id"]))
+    exists = cursor.fetchone() is not None
+
+    if exists:
+        delete_sql = """
+            DELETE FROM article_reaction_information
+            WHERE reaction_id IN (
+                SELECT reaction_id
+                FROM user_article_interactions
+                WHERE user_id = %s AND article_id = %s AND interaction = 4
+            )
+        """
+        cursor.execute(delete_sql, (query["user_id"], query["article_id"]))
+
+        delete_sql = """
+            DELETE FROM user_article_interactions
+            WHERE user_id = %s AND article_id = %s AND interaction = %s
+        """
+        cursor.execute(delete_sql, (query["user_id"], query["article_id"], 4,))
+
+    # Insert new interaction (using prepared statement)
+    insert_sql = """
+        INSERT INTO user_article_interactions (user_id, reaction_id, timestamp, article_id, interaction)
+        VALUES (%s, %s, %s, %s, %s)
+    """
+    cursor.execute(insert_sql, (query["user_id"], reaction_id, int(datetime.now().timestamp()), query["article_id"], 4))
+
+    insert_sql = """
+        INSERT INTO article_reaction_information (reaction_id, reaction_sentiment)
+        VALUES (%s, %s)
+    """
+    cursor.execute(insert_sql, (reaction_id, query["reaction_sentiment"]))
+
+    db.commit()
+    cursor.execute("""
+    SELECT reaction_sentiment, COUNT(*) AS count
+    FROM user_article_interactions uai
+    JOIN article_reaction_information ari ON uai.reaction_id = ari.reaction_id
+    WHERE uai.article_id = %s
+    GROUP BY reaction_sentiment
+  """, (query["article_id"],))
+
+    reactions = {"love": 0, "smile": 0, "pensive": 0, "surprised": 0, "angry": 0}
+    for row in cursor.fetchall():
+        sentiment = row[0]
+        count = row[1]
+        if sentiment == 1.0:
+            reactions["love"] += 1
+        elif sentiment == 0.75:
+            reactions["smile"] += 1
+        elif sentiment == 0.3:
+            reactions["pensive"] += 1
+        elif sentiment == 0.5:
+            reactions["surprised"] += 1
+        elif sentiment == 0.0:
+            reactions["angry"] += 1
+    return reactions
+
+
+async def user_save_article(db, query: dict):
     cursor = db.cursor()
     print("received1")
     reaction_id = str(uuid4())
@@ -104,7 +216,7 @@ def user_save_article(db, query: dict):
     val = (
         query["user_id"],
         reaction_id,  # create new reaction id
-        datetime.now().timestamp(),
+        int(datetime.now().timestamp()),
         query["article_id"],
         5,
     )
@@ -116,7 +228,7 @@ def user_save_article(db, query: dict):
     return True
 
 
-def user_unsave_article(db, query: dict):
+async def user_unsave_article(db, query: dict):
     cursor = db.cursor()
     cursor = db.cursor()
 
@@ -290,6 +402,7 @@ def get_article_interaction_information(db, query: dict):
 def get_article_details_and_interactions(db, query: dict):
     # really optimised single query to search for articles and interactions! (7s -> 3s)
     article_id = query["article_id"]
+    user_id = query["user_id"]
 
     sql = """
     SELECT 
@@ -338,7 +451,7 @@ def get_article_details_and_interactions(db, query: dict):
     results = cursor.fetchall()
 
     article = None
-    interactions = []
+    interactions = {"post_saved": False, "reactions": {"love": 0, "smile": 0, "pensive": 0, "surprised": 0, "angry": 0}, "current_reaction": ""}
 
     for row in results:
         # Extract article details
@@ -357,17 +470,31 @@ def get_article_details_and_interactions(db, query: dict):
 
         # Extract interaction details
         if row[11] is not None:  # Check if interaction data exists
-            interaction = {
-                "user_id": row[11],
-                "reaction_id": row[12],
-                "timestamp": row[13],
-                "interaction": row[14],
-                "view_seconds": row[15] if row[15] is not None else None,
-                "scroll_depth": row[16] if row[16] is not None else None,
-                "comment": row[17] if row[17] is not None else None,
-                "reaction_sentiment": row[18] if row[18] is not None else None,
-            }
-            interactions.append(interaction)
+            if row[14] == 5 and row[11] == user_id:
+                interactions["post_saved"] = True
+
+            if row[14] == 4:
+                if row[18] == 1.0:
+                    if row[11] == user_id:
+                        interactions['current_reaction'] = "love"
+
+                    interactions["reactions"]["love"] += 1
+                elif row[18] == 0.75:
+                    if row[11] == user_id:
+                        interactions['current_reaction'] = "smile"
+                    interactions["reactions"]["smile"] += 1
+                elif row[18] == 0.3:
+                    if row[11] == user_id:
+                        interactions['current_reaction'] = "pensive"
+                    interactions["reactions"]["pensive"] += 1
+                elif row[18] == 0.5:
+                    if row[11] == user_id:
+                        interactions['current_reaction'] = "suprised"
+                    interactions["reactions"]["surprised"] += 1
+                elif row[18] == 0.0:
+                    if row[11] == user_id:
+                        interactions['current_reaction'] = "angry"
+                    interactions["reactions"]["angry"] += 1
 
     return {
         "article_info": article,
@@ -490,7 +617,8 @@ def get_saved_articles(db, query: dict):
     article_ids = []
     for result in results:
         article_ids.append(result[3])
-
+    if len(article_ids) == 0:
+        return []
     placeholders = ",".join(["%s"] * len(article_ids))
     sql = f"SELECT * FROM articles WHERE article_id IN ({placeholders})"
 
@@ -596,9 +724,9 @@ def get_article_from_article_id(db, query: dict):
 
 def get_recent_articles(db):
     cursor = db.cursor()
-    # hard coded to be 14 days
-    sql = "SELECT * FROM articles WHERE created_at>=%s"
-    cursor.execute(sql, (int(datetime.now().timestamp() - 14 * 24 * 60 * 60),))
+    # not recent
+    sql = "SELECT * FROM articles"
+    cursor.execute(sql)
     return cursor.fetchall()
 
 
@@ -607,14 +735,79 @@ def get_x_user_article_interactions(db, query: dict):
     x = query["x"]  # number of articles
     user_id = query["user_id"]
 
-    sql = "SELECT * FROM user_article_interactions WHERE user_id=%s ORDER BY ABS(timestamp) DESC LIMIT 0, %s"
-    cursor.execute(
-        sql,
-        (
-            user_id,
-            x,
-        ),
-    )
+    sql = """
+        SELECT 
+            uai.user_id, 
+            uai.reaction_id, 
+            uai.timestamp, 
+            uai.article_id, 
+            uai.interaction, 
+            avi.view_seconds AS engagement_data 
+        FROM 
+            user_article_interactions uai
+        JOIN 
+            article_view_information avi ON uai.reaction_id = avi.reaction_id
+        WHERE 
+            uai.user_id = %s
+        UNION ALL
+        SELECT 
+            uai.user_id, 
+            uai.reaction_id, 
+            uai.timestamp, 
+            uai.article_id, 
+            uai.interaction, 
+            asi.scroll_depth AS engagement_data
+        FROM 
+            user_article_interactions uai
+        JOIN 
+            article_scroll_information asi ON uai.reaction_id = asi.reaction_id
+        WHERE 
+            uai.user_id = %s
+        UNION ALL
+        SELECT 
+            uai.user_id, 
+            uai.reaction_id, 
+            uai.timestamp, 
+            uai.article_id, 
+            uai.interaction, 
+            aci.comment AS engagement_data
+        FROM 
+            user_article_interactions uai
+        JOIN 
+            article_comment_information aci ON uai.reaction_id = aci.reaction_id
+        WHERE 
+            uai.user_id = %s
+        UNION ALL
+        SELECT 
+            uai.user_id, 
+            uai.reaction_id, 
+            uai.timestamp, 
+            uai.article_id, 
+            uai.interaction, 
+            ari.reaction_sentiment AS engagement_data
+        FROM 
+            user_article_interactions uai
+        JOIN 
+            article_reaction_information ari ON uai.reaction_id = ari.reaction_id
+        WHERE 
+            uai.user_id = %s
+        UNION ALL
+        SELECT 
+            uai.user_id, 
+            uai.reaction_id, 
+            uai.timestamp, 
+            uai.article_id, 
+            uai.interaction, 
+            NULL AS engagement_data 
+        FROM 
+            user_article_interactions uai
+        WHERE 
+            uai.user_id = %s AND uai.interaction = 5
+        ORDER BY timestamp DESC
+        LIMIT 0, %s;
+        """
+    
+    cursor.execute(sql, (user_id, user_id, user_id, user_id, user_id, x))
 
     results = cursor.fetchall()
 
@@ -630,7 +823,77 @@ def get_users_article_interactions(db, query: dict):
     users = str(users)
     if users[-2] == ",":
         users = users[:-2] + users[-1:]
-    sql = f"SELECT * FROM user_article_interactions WHERE user_id IN {users}"
+    cursor = db.cursor()
+
+    sql = f"""
+        SELECT 
+            uai.user_id, 
+            uai.reaction_id, 
+            uai.timestamp, 
+            uai.article_id, 
+            uai.interaction, 
+            avi.view_seconds AS engagement_data 
+        FROM 
+            user_article_interactions uai
+        JOIN 
+            article_view_information avi ON uai.reaction_id = avi.reaction_id
+        WHERE 
+            uai.user_id IN {users}
+        UNION ALL
+        SELECT 
+            uai.user_id, 
+            uai.reaction_id, 
+            uai.timestamp, 
+            uai.article_id, 
+            uai.interaction, 
+            asi.scroll_depth AS engagement_data
+        FROM 
+            user_article_interactions uai
+        JOIN 
+            article_scroll_information asi ON uai.reaction_id = asi.reaction_id
+        WHERE 
+            uai.user_id IN {users}
+        UNION ALL
+        SELECT 
+            uai.user_id, 
+            uai.reaction_id, 
+            uai.timestamp, 
+            uai.article_id, 
+            uai.interaction, 
+            aci.comment AS engagement_data
+        FROM 
+            user_article_interactions uai
+        JOIN 
+            article_comment_information aci ON uai.reaction_id = aci.reaction_id
+        WHERE 
+            uai.user_id IN {users}
+        UNION ALL
+        SELECT 
+            uai.user_id, 
+            uai.reaction_id, 
+            uai.timestamp, 
+            uai.article_id, 
+            uai.interaction, 
+            ari.reaction_sentiment AS engagement_data
+        FROM 
+            user_article_interactions uai
+        JOIN 
+            article_reaction_information ari ON uai.reaction_id = ari.reaction_id
+        WHERE 
+            uai.user_id IN {users}
+        UNION ALL
+        SELECT 
+            uai.user_id, 
+            uai.reaction_id, 
+            uai.timestamp, 
+            uai.article_id, 
+            uai.interaction, 
+            NULL AS engagement_data 
+        FROM 
+            user_article_interactions uai
+        WHERE 
+            uai.user_id IN {users} AND uai.interaction = 5
+        """
     cursor.execute(sql)
 
     results = cursor.fetchall()

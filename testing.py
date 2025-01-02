@@ -14,13 +14,49 @@ from datetime import datetime
 import time
 from googleapiclient.discovery import build
 
-service = build(
-    "customsearch", "v1", developerKey="AIzaSyD780bXVpnRkd2tAqCMw2HAbO1qYVLeoRs"
-)
+"""service = build(
+    "customsearch", "v1", developerKey=""
+)"""
 
-mycursor.execute("SELECT * FROM articles")
+# mycursor.execute("""CREATE TABLE assignments (
+#     assignment_id VARCHAR(36) PRIMARY KEY,
+#     classroom_id VARCHAR(36),
+#     author_id VARCHAR(36),
+#     title VARCHAR(1000),
+#     description VARCHAR(1000),
+#     assignment_type VARCHAR(10),
+#     graded BOOLEAN,
+#     FOREIGN KEY (classroom_id) REFERENCES classrooms(classroom_id) ON DELETE CASCADE
+# )""")
 
-failed = []
+# mycursor.execute("""CREATE TABLE assignment_article (
+#     assignment_id VARCHAR(36),
+#     article_id VARCHAR(36),
+#     FOREIGN KEY (assignment_id) REFERENCES assignments(assignment_id) ON DELETE CASCADE
+# )""")
+
+# mycursor.execute("""
+#     CREATE TABLE user_quiz_progress (
+#         user_id VARCHAR(36),
+#         article_id VARCHAR(36),
+#         assignment_id VARCHAR(36),
+#         completed BOOLEAN,
+#         FOREIGN KEY (user_id) REFERENCES users(user_id),
+#         FOREIGN KEY (article_id) REFERENCES articles(article_id),
+#         FOREIGN KEY (assignment_id) REFERENCES assignments(assignment_id) ON DELETE CASCADE
+#     )
+# """)
+
+# mycursor.execute("""
+#     CREATE TABLE article_quiz (
+#         article_id VARCHAR(36),
+#         questions VARCHAR(5000),
+#         FOREIGN KEY (article_id) REFERENCES articles(article_id) ON DELETE CASCADE
+#     )
+# """)
+
+
+"""failed = []
 for article in mycursor.fetchall():
     if article[8] != None:
         continue
@@ -43,7 +79,7 @@ for article in mycursor.fetchall():
         mydb.commit()
     except KeyError:
         failed.append(article[0])
-print(failed)
+print(failed)"""
 
 # authors = {}
 # agencies = {}

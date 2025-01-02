@@ -2,8 +2,6 @@ from dotenv import load_dotenv
 import mysql.connector as mysql
 import os
 from .controllers import auth, articles, users
-import asyncio
-import time
 
 load_dotenv()
 
@@ -46,14 +44,14 @@ def articles_get_articles_of_topic(query: dict):
     return articles.get_articles_of_topic(mydb, query=query)
 
 
-def articles_user_article_scroll_complete(query: dict):
+async def articles_user_article_scroll_complete(query: dict):
     mydb = mysql.connect(
         host=os.getenv("DB_HOST"),
         database=os.getenv("DB_DATABASE"),
         user=os.getenv("DB_USER"),
         password=os.getenv("DB_PASSWORD"),
     )
-    return articles.user_article_scroll_complete(mydb, query=query)
+    return await articles.user_article_scroll_complete(mydb, query=query)
 
 
 def articles_user_article_comment_create(query: dict):
@@ -76,24 +74,24 @@ def articles_user_article_reaction_create(query: dict):
     return articles.user_article_reaction_create(mydb, query=query)
 
 
-def articles_user_save_article(query: dict):
+async def articles_user_save_article(query: dict):
     mydb = mysql.connect(
         host=os.getenv("DB_HOST"),
         database=os.getenv("DB_DATABASE"),
         user=os.getenv("DB_USER"),
         password=os.getenv("DB_PASSWORD"),
     )
-    return articles.user_save_article(mydb, query=query)
+    return await articles.user_save_article(mydb, query=query)
 
 
-def articles_user_unsave_article(query: dict):
+async def articles_user_unsave_article(query: dict):
     mydb = mysql.connect(
         host=os.getenv("DB_HOST"),
         database=os.getenv("DB_DATABASE"),
         user=os.getenv("DB_USER"),
         password=os.getenv("DB_PASSWORD"),
     )
-    return articles.user_unsave_article(mydb, query=query)
+    return await articles.user_unsave_article(mydb, query=query)
 
 
 def articles_get_saved_articles(query: dict):
@@ -115,6 +113,14 @@ def articles_get_article_interaction_information(query: dict):
     )
     return articles.get_article_interaction_information(mydb, query=query)
 
+async def articles_user_set_age_and_gender(query: dict):
+    mydb = mysql.connect(
+        host=os.getenv("DB_HOST"),
+        database=os.getenv("DB_DATABASE"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+    )
+    return await articles.user_set_age_and_gender(mydb, query=query)
 
 def articles_get_recent_articles():
     mydb = mysql.connect(

@@ -1,7 +1,8 @@
 from code import interact
+from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import date, datetime
 import pandas as pd
 import pycountry
 import bcrypt
@@ -16,8 +17,11 @@ from ..db.init import (
     articles_get_users_article_interactions,
     articles_get_x_user_article_interactions,
     articles_user_article_comment_create,
+    articles_user_article_reaction_create,
+    articles_user_article_scroll_complete,
     articles_user_article_view_create,
     articles_user_save_article,
+    articles_user_set_age_and_gender,
     articles_user_unsave_article,
     auth_get_user_recommendation_index,
     auth_is_session_token_valid,
@@ -27,7 +31,9 @@ from ..db.init import (
 import google.generativeai as genai
 import os
 import random
+import asyncio
 
+load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 salt = open("config.txt", "r").readlines()[0].replace("salt=", "").encode()
 
@@ -42,10 +48,18 @@ class Article(BaseModel):
     article_id: str | None = None
     user_id: str | None = None
 
+
 class ArticleView(BaseModel):
     article_id: str | None = None
     user_id: str | None = None
     view_seconds: int | None = None
+    scroll_depth: float | None = None
+
+
+class ArticleReaction(BaseModel):
+    article_id: str | None = None
+    user_id: str | None = None
+    reaction_sentiment: float | None = None
 
 
 class ArticleSaveReaction(BaseModel):
@@ -59,6 +73,7 @@ class Headers(BaseModel):
 
 
 router = APIRouter(prefix="/articles", tags=["articles"])
+feeds = {}
 
 
 async def is_logged_in(req: Request) -> bool:
@@ -89,7 +104,6 @@ async def recent_x_user_article_interactions_ranked(user_id: str, x: int) -> lis
         {"x": x, "user_id": user_id}
     )
     articles = {}
-
     for interaction in interactions:
         recency_factor = 14  # number of days considered recent
         total_weighting = 0
@@ -102,26 +116,23 @@ async def recent_x_user_article_interactions_ranked(user_id: str, x: int) -> lis
                 datetime.now().timestamp() - recency_factor * 24 * 60 * 60
             )
         ):
-            # TODO: very inefficient retrieval that needs to be reworked
-            interaction_info = articles_get_article_interaction_information(
-                {"reaction_id": interaction[1]}
-            )
-
             if interaction[4] == 1:
                 # View
-                total_weighting += view_weighting
+                total_weighting += view_weighting  # + int(interaction[5] * 0.001)
             elif interaction[4] == 2:
                 # full scroll, therefore scroll depth is 0.0-1.0
-                total_weighting += full_scroll_weighting * float(interaction_info[5])
+                total_weighting += full_scroll_weighting * float(interaction[5])
 
             elif interaction[4] == 3:
                 # Comment
                 total_weighting += comment_weighting
-                total_weighting += 0.001 * len(interaction_info[5].split())
+                total_weighting += 0.001 * len(interaction[5].split())
             elif interaction[4] == 4:
                 # Reaction (emoji)
-                if interaction_info[5] > 0:
+                if float(interaction[5]) > 0.5:
                     total_weighting += reaction_weighting
+                elif float(interaction[5]) == 0.5:
+                    total_weighting += reaction_weighting / 1.5
                 else:
                     total_weighting += reaction_weighting / 2
             elif interaction[4] == 5:
@@ -143,6 +154,7 @@ async def user_article_ratings(users: list) -> dict:
     saved_weighting = 0.97
 
     interactions = articles_get_users_article_interactions({"users": users})
+
     user_dict = {}
     for user in users:
         articles = {}
@@ -155,33 +167,34 @@ async def user_article_ratings(users: list) -> dict:
 
             article_id = interaction[3]
             if article_id not in articles:
-                articles[article_id] = 0
-            # TODO: very inefficient retrieval that needs to be reworked
-            interaction_info = articles_get_article_interaction_information(
-                {"reaction_id": interaction[1]}
-            )
+                articles[article_id] = {"rating": 0, "viewed": False}
 
             if interaction[4] == 1:
                 # View
-                total_weighting += view_weighting
+                total_weighting += view_weighting  # + int(interaction[5] * 0.001)
+                if int(interaction[5]) > 10:
+                    articles[article_id]["viewed"] = True
             elif interaction[4] == 2:
                 # full scroll, therefore scroll depth is 0.0-1.0
-                total_weighting += full_scroll_weighting * float(interaction_info[5])
+                total_weighting += full_scroll_weighting * float(interaction[5])
+
             elif interaction[4] == 3:
                 # Comment
                 total_weighting += comment_weighting
-                total_weighting += 0.001 * len(interaction_info[5].split())
+                total_weighting += 0.001 * len(interaction[5].split())
             elif interaction[4] == 4:
                 # Reaction (emoji)
-                if interaction_info[5] > 0:
+                if float(interaction[5]) > 0.5:
                     total_weighting += reaction_weighting
+                elif float(interaction[5]) == 0.5:
+                    total_weighting += reaction_weighting / 1.5
                 else:
                     total_weighting += reaction_weighting / 2
             elif interaction[4] == 5:
                 # Saved article
                 total_weighting += saved_weighting
 
-            articles[article_id] += total_weighting
+            articles[article_id]["rating"] += total_weighting
         user_dict[user] = articles
 
     return user_dict
@@ -203,15 +216,6 @@ async def feed(body: Feed, auth_headers: bool = Depends(is_logged_in)):
     # preload 20 posts, then as they reach 15 load 10
     if topic == "Trending":
 
-        # past 2 days trending articles
-
-        articles = articles_get_all_articles()
-        random.shuffle(articles)
-
-        if page == 1:
-            return articles[0:20]
-        else:
-            return articles[20 + int(page - 2) * 30 : 20 + int(page - 2) * 30 + 30]  # type: ignore
         recommendation_indexes = auth_get_user_recommendation_index(
             {"user_id": user_id}
         )
@@ -240,20 +244,85 @@ async def feed(body: Feed, auth_headers: bool = Depends(is_logged_in)):
         users = users_get_users_based_on_rec_criteria(
             {"user_id": user_id, "age": age, "gender": gender, "geolocation": location}
         )
-        users.append(("60858c60-70cd-4d44-8496-4f2c518a169b",))
-        uar = await user_article_ratings([user[0] for user in users])
 
+        uar = await user_article_ratings([user[0] for user in users])
+        if str(user_id) not in feeds:
+            feeds[str(user_id)] = []
+
+        requester_id = user_id
         rows = []
         for user_id, ratings in uar.items():
             for article_id, rating in ratings.items():
+                ratingd = rating["rating"]
+                if rating["viewed"]:
+                    ratingd *= 0.10
+                if article_id in feeds[str(requester_id)]:
+                    ratingd *= 0.29
                 rows.append(
-                    {"user_id": user_id, "article_id": article_id, "rating": rating}
+                    {"user_id": user_id, "article_id": article_id, "rating": ratingd}
                 )
 
         df = pd.DataFrame(rows)
+        article_ratings = df.groupby("article_id")["rating"].mean()
+        article_ids = article_ratings.sort_values(ascending=False)
+
+        articles = articles_get_all_articles()
+        filtered_articles = articles.copy()
+        article_id_to_article = {article["article_id"]: article for article in articles}
+
+        for row in article_ids.index:
+            for article in articles:
+                if (
+                    article["article_id"] == row
+                    or article["article_id"] in feeds[str(requester_id)]
+                ):
+                    try:
+                        filtered_articles.remove(article)
+                    except:
+                        pass
+
+        if page == 1:
+            articles_a = article_ids.iloc[0:20]
+        else:
+            articles_a = article_ids.iloc[20 + int(page - 2) * 30 : 20 + int(page - 2) * 30 + 30]  # type: ignore
+        # past 2 days trending articles
 
         # highest rating users x the user article ratings add together to form total rating
         #  average the total rating and highest rating is top of feed, then scrolls down and 20-10-10-10...
+
+        article_id_list = []
+
+        for article_id in articles_a.index:
+            article_id_list.append(article_id)
+
+        if page == 1:
+            if len(article_id_list) < 20:
+                random.shuffle(filtered_articles)
+                for i in range(20 - len(article_id_list)):
+                    locked = True
+                    while locked:
+                        if articles[0]["article_id"] not in article_id_list:
+                            article_id_list.append(articles[0]["article_id"])
+                            articles.pop(0)
+                            locked = False
+        else:
+            if len(article_id_list) < 30:
+                random.shuffle(filtered_articles)
+                for i in range(30 - len(article_id_list)):
+                    locked = True
+                    while locked:
+                        if articles[0]["article_id"] not in article_id_list:
+                            article_id_list.append(articles[0]["article_id"])
+                            articles.pop(0)
+                            locked = False
+        article_list = []
+
+        for article_id in article_id_list:
+            article_list.append(article_id_to_article[article_id])
+
+        feeds[str(requester_id)].extend(article_id_list)
+
+        return article_list
 
     elif pycountry.countries.get(name=topic):
 
@@ -282,25 +351,54 @@ async def article_information(
 ):
     if not auth_headers:
         raise HTTPException(status_code=401, detail="Unauthorised")
-    return articles_get_article_details_and_interactions({"article_id": body.article_id})
+    return articles_get_article_details_and_interactions(
+        {"article_id": body.article_id, "user_id": body.user_id}
+    )
 
 
 @router.post("/view")
-async def article_view(
-    body: ArticleView, auth_headers: bool = Depends(is_logged_in)
-):
+async def article_view(body: ArticleView, auth_headers: bool = Depends(is_logged_in)):
     article_id = body.article_id
     user_id = body.user_id
     vs = body.view_seconds
+    sd = body.scroll_depth
     if not auth_headers:
         raise HTTPException(status_code=401, detail="Unauthorised")
 
     # TODO: potentially unsafe point, any token can use any user id)
-    await articles_user_article_view_create({"user_id": user_id, "article_id": article_id, "view_seconds": vs})
-    print('done')
+    asyncio.create_task(
+        articles_user_article_view_create(
+            {"user_id": user_id, "article_id": article_id, "view_seconds": vs}
+        )
+    )
+
+    asyncio.create_task(
+        articles_user_article_scroll_complete(
+            {"user_id": user_id, "article_id": article_id, "scroll_depth": sd}
+        )
+    )
     return True
 
-@router.post("/view")
+
+@router.post("/reaction")
+async def article_reaction(
+    body: ArticleReaction, auth_headers: bool = Depends(is_logged_in)
+):
+    article_id = body.article_id
+    user_id = body.user_id
+    reaction_sentiment = body.reaction_sentiment
+    if not auth_headers:
+        raise HTTPException(status_code=401, detail="Unauthorised")
+    return articles_user_article_reaction_create(
+        {
+            "user_id": user_id,
+            "article_id": article_id,
+            "reaction_sentiment": reaction_sentiment,
+        }
+    )
+
+
+@router.post("/save")
 async def article_save(
     body: ArticleSaveReaction, auth_headers: bool = Depends(is_logged_in)
 ):
@@ -311,13 +409,17 @@ async def article_save(
         raise HTTPException(status_code=401, detail="Unauthorised")
 
     # TODO: potentially unsafe point, any token can use any user id)
-    print("received")
     if save:
-        articles_user_save_article({"user_id": user_id, "article_id": article_id})
+        asyncio.create_task(
+            articles_user_save_article({"user_id": user_id, "article_id": article_id})
+        )
     else:
-        articles_user_unsave_article({"user_id": user_id, "article_id": article_id})
+        asyncio.create_task(
+            articles_user_unsave_article({"user_id": user_id, "article_id": article_id})
+        )
 
     return True
+
 
 @router.post("/saved")
 async def saved(body: Headers, auth_headers: bool = Depends(is_logged_in)):
@@ -328,7 +430,7 @@ async def saved(body: Headers, auth_headers: bool = Depends(is_logged_in)):
     return articles_get_saved_articles({"user_id": user_id})
 
 
-@router.get("/headers")
+@router.post("/headers")
 async def headers(body: Headers, auth_headers: bool = Depends(is_logged_in)):
     user_id = body.user_id
 
@@ -368,5 +470,7 @@ async def headers(body: Headers, auth_headers: bool = Depends(is_logged_in)):
     country_code = auth_return_user_object_from_user_id({"user_id": user_id})[5]
 
     headers = [pycountry.countries.get(alpha_2=country_code).name, "Trending"] + headers
-
+    asyncio.create_task(
+        articles_user_set_age_and_gender({"headers": headers, "user_id": user_id})
+    )
     return headers
