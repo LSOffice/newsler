@@ -4,6 +4,7 @@ import aiomysql
 from dotenv import load_dotenv
 import os
 from datetime import datetime
+import json
 
 load_dotenv()
 
@@ -203,3 +204,57 @@ async def user_load_assignment(query: dict):
 
 
     conn.close()
+
+    # TODO: ^^ load quiz results too
+
+async def user_load_quiz(query: dict):
+    # assignment_id, user_id, article_id
+    conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE")) # type: ignore
+    async with conn.cursor() as cur:
+        assignment_id = query['assignment_id']
+        user_id = query['user_id']
+        article_id = query['article_id']
+
+        await cur.execute("SELECT * FROM article_quiz WHERE article_id = %s", (article_id,))
+        result = await cur.fetchall()
+        if len(result) != 1:
+            return {"success": False}
+
+        quiz = json.load(result[0][1])
+
+        await cur.execute("SELECT * FROM user_quiz_progress WHERE article_id = %s AND user_id = %s AND assignment_id = %s", (article_id, user_id, assignment_id))
+        result = await cur.fetchall()
+        if len(result) == 1:
+            pass
+        else:
+            await cur.execute("INSERT INTO user_quiz_progress (user_id, article_id, assignment_id, score) VALUES (%s, %s, %s, %s)", (user_id, article_id, assignment_id, -1))
+
+        return {"success": True, "quiz": quiz}
+
+async def user_finish_quiz(query: dict):
+    # assignment_id, user_id, article_id, answers
+    conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE")) # type: ignore
+    async with conn.cursor() as cur:
+        assignment_id = query['assignment_id']
+        user_id = query['user_id']
+        article_id = query['article_id']
+        answers = json.load(query['answers'])
+
+        await cur.execute("SELECT * FROM article_quiz WHERE article_id = %s", (article_id,))
+        result = await cur.fetchall()
+        if len(result) != 1:
+            return {"success": False}
+
+        quiz = json.load(result[0][1])
+        if len(answers) != len(quiz):
+            return {"success": False}
+
+        correct = 0
+        for question in quiz:
+            # question1: {question: "", answer: ""}, question2: ...
+            if answers[question]['answer'] == quiz[question]['answer']: correct += 1
+        
+        await cur.execute("UPDATE user_quiz_progress SET score = %s WHERE article_id = %s AND user_id = %s AND assignment_id = %s", (correct, article_id, user_id, assignment_id))
+        
+        return {"success": True, "score": correct}
+    

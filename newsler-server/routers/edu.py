@@ -14,6 +14,17 @@ salt = open("config.txt", "r").readlines()[0].replace("salt=", "").encode()
 class Load(BaseModel):
     user_id: str | None = None
 
+class LoadQuiz(BaseModel):
+    user_id: str | None = None
+    article_id: str | None = None
+    assignment_id: str | None = None
+
+class FinishQuiz(BaseModel):
+    user_id: str | None = None
+    article_id: str | None = None
+    assignment_id: str | None = None
+    answers: str | None = None
+
 class LoadAssignment(BaseModel):
     assignment_id: str | None = None
     user_id: str | None = None
@@ -142,8 +153,10 @@ async def load_assignment(body: LoadAssignment, auth_headers: bool = Depends(is_
     return result
 
 @router.post("/quiz/load")
-async def load_quiz(body: Load, auth_headers: bool = Depends(is_logged_in)) -> dict:
+async def load_quiz(body: LoadQuiz, auth_headers: bool = Depends(is_logged_in)) -> dict:
     user_id = body.user_id
+    assignment_id = body.assignment_id
+    article_id = body.article_id
 
     if not auth_headers:
         raise HTTPException(status_code=401, detail="Unauthorised")
