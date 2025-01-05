@@ -93,36 +93,51 @@ const Saved = () => {
 
           <View className="flex flex-col mt-3">
             <Text className="text-2xl font-bold pl-4 mb-3">Saved Articles</Text>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {[...Array(Math.ceil(savedPosts.length / 4))].map((_, index) => (
-                <View key={index} className="flex flex-row">
-                  {savedPosts
-                    .slice(index * 4, index * 4 + 4)
-                    .map((_, index1) => (
-                      <TouchableOpacity
-                        key={index * 4 + index1}
-                        className="w-1/4 h-24 border border-white"
-                        onPress={() => router.push("article/" + savedPosts[index * 4 + index1].article_id)}
-                      >
-                        <ImageBackground
-                          source={{ uri: savedPosts[index * 4 + index1].image_uri }}
-                          className="w-full h-full flex flex-col"
-                        >
-                          {!savedPosts[index * 4 + index1].image_uri ? (
-                            <Text className="mt-auto font-medium text-black">
-                              {savedPosts[index * 4 + index1].title}
-                            </Text>
-                          ) : (
-                            <></>
-                          )}
-                        </ImageBackground>
-                      </TouchableOpacity>
-                    ))}
-                </View>
-              ))}
+            {savedPosts.length == 0 ? (
+              <Text className="pl-4">
+                You have no saved articles. Come back when you have!
+              </Text>
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {[...Array(Math.ceil(savedPosts.length / 4))].map(
+                  (_, index) => (
+                    <View key={index} className="flex flex-row">
+                      {savedPosts
+                        .slice(index * 4, index * 4 + 4)
+                        .map((_, index1) => (
+                          <TouchableOpacity
+                            key={index * 4 + index1}
+                            className="w-1/4 h-24 border border-white"
+                            onPress={() =>
+                              router.push(
+                                "article/" +
+                                  savedPosts[index * 4 + index1].article_id,
+                              )
+                            }
+                          >
+                            <ImageBackground
+                              source={{
+                                uri: savedPosts[index * 4 + index1].image_uri,
+                              }}
+                              className="w-full h-full flex flex-col"
+                            >
+                              {!savedPosts[index * 4 + index1].image_uri ? (
+                                <Text className="mt-auto font-medium text-black">
+                                  {savedPosts[index * 4 + index1].title}
+                                </Text>
+                              ) : (
+                                <></>
+                              )}
+                            </ImageBackground>
+                          </TouchableOpacity>
+                        ))}
+                    </View>
+                  ),
+                )}
 
-              <View className="h-[150px]" />
-            </ScrollView>
+                <View className="h-[150px]" />
+              </ScrollView>
+            )}
           </View>
         </View>
       </SafeAreaView>

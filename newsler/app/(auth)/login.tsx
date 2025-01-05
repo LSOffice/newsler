@@ -54,6 +54,9 @@ const Login = () => {
             text1: "Error",
             text2: "Auto sign-in failed",
           });
+          await AsyncStorage.removeItem("session_token");
+          await AsyncStorage.removeItem("refresh_token");
+          await AsyncStorage.removeItem("userId");
         }
       } else {
         setautoSignIn(false);
@@ -71,6 +74,15 @@ const Login = () => {
     }
 
     try {
+      if (isSubmitting) {
+        return;
+      }
+      setisSubmitting(true);
+      Toast.show({
+        type: "info",
+        text1: "Logging in",
+        visibilityTime: 200000,
+      });
       const loginResponse = await fetch(apiUrl + "/auth/login", {
         method: "POST",
         headers: {
@@ -82,10 +94,10 @@ const Login = () => {
 
       const loginContent = await loginResponse.json();
       if (loginResponse.status != 200) {
+        setisSubmitting(false);
         alert("Login failed");
         return;
       }
-      console.log(loginContent);
       await AsyncStorage.setItem(
         "session_token",
         loginContent["session_token"],
@@ -98,6 +110,7 @@ const Login = () => {
       );
       router.push("/home");
     } catch (e) {
+      setisSubmitting(false);
       console.error(e);
       alert("An error occurred. Please try again");
     }

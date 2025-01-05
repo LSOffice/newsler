@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Dialog, CheckBox, ListItem, Avatar } from "@rneui/themed";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Link,
   router,
@@ -46,6 +46,8 @@ const ArticleDisplay = () => {
   const articleId = local.articleId;
   const [isModalVisible, setModalVisible] = useState(false);
   const [postSaved, setPostSaved] = useState(false);
+  const [contentHeight, setContentHeight] = useState(0);
+  const scrollViewRef = useRef(null);
   const toggleModal = () => {
     setModalVisible(!isModalVisible);
   };
@@ -55,9 +57,49 @@ const ArticleDisplay = () => {
   const [isLoaded, setisLoaded] = useState(false);
   const [runningSave, setrunningSave] = useState(false);
   const [timer, setTimer] = useState(0);
+  const [greatestDepthTravelled, setgreatestDepthTravelled] = useState(0);
+  const [reaction, setReaction] = useState(false);
+  const [currentReaction, setcurrentReaction] = useState("");
 
   const back = async () => {
     router.back();
+    if (currentReaction != "") {
+      let reaction_sentiment = 0.0;
+      if (currentReaction == "love") {
+        reaction_sentiment = 1.0;
+      } else if (currentReaction == "smile") {
+        reaction_sentiment = 0.75;
+      } else if (currentReaction == "surprised") {
+        reaction_sentiment = 0.5;
+      } else if (currentReaction == "pensive") {
+        reaction_sentiment = 0.3;
+      }
+
+      try {
+        const response = await fetch(apiUrl + "/articles/reaction", {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            Authorization:
+              "Bearer " + (await AsyncStorage.getItem("session_token")),
+          },
+          body: JSON.stringify({
+            article_id: articleId,
+            user_id: await AsyncStorage.getItem("userId"),
+            reaction_sentiment: reaction_sentiment,
+          }),
+        });
+      } catch (e) {
+        Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: "An error occurred while saving reaction!",
+          visibilityTime: 1000,
+        });
+      }
+    }
+
     try {
       const response = await fetch(apiUrl + "/articles/view", {
         method: "POST",
@@ -71,6 +113,7 @@ const ArticleDisplay = () => {
           article_id: articleId,
           user_id: await AsyncStorage.getItem("userId"),
           view_seconds: timer,
+          scroll_depth: greatestDepthTravelled / contentHeight,
         }),
       });
     } catch (e) {
@@ -84,6 +127,7 @@ const ArticleDisplay = () => {
   };
 
   useEffect(() => {
+    console.log(articleId);
     const intervalId = setInterval(() => {
       setTimer((prevTimer) => prevTimer + 1);
     }, 1000);
@@ -91,58 +135,51 @@ const ArticleDisplay = () => {
     return () => clearInterval(intervalId);
   }, []);
 
-  const setReaction = async (e: any) => {
-    if (runningSave) {
-      return;
+  const handleContentSizeChange = (width, height) => {
+    setContentHeight(height - 650);
+  };
+
+  const handleScroll = async (e: any) => {
+    e.persist();
+    if (e.nativeEvent.contentOffset.y > greatestDepthTravelled) {
+      setgreatestDepthTravelled(e.nativeEvent.contentOffset.y);
     }
-    setrunningSave(true);
-    Toast.show({
-      type: "info",
-      text1: postSaved ? "Unsaving post!" : "Saving post!",
-      text2: "Give it a bit...",
-      visibilityTime: 200000,
-    });
-    try {
-      const response = await fetch(apiUrl + "/articles/save", {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization:
-            "Bearer " + (await AsyncStorage.getItem("session_token")),
-        },
-        body: JSON.stringify({
-          article_id: articleId,
-          user_id: await AsyncStorage.getItem("userId"),
-          save: !postSaved,
-        }),
-      });
-      const responseJson = await response.json();
-      if (responseJson) {
-        setPostSaved(!postSaved);
-        Toast.show({
-          type: "success",
-          text1: postSaved ? "Post unsaved!" : "Post saved!",
-          text2: postSaved ? "" : "View in your saved posts",
-          visibilityTime: 1000,
-        });
-      } else {
-        Toast.show({
-          type: "error",
-          text1: "Error",
-          text2: postSaved ? "Failed to unsave post!" : "Failed to save post!",
-          visibilityTime: 1000,
-        });
-      }
-      setrunningSave(false);
-    } catch (e) {
+  };
+
+  const reactionPost = async (reaction_sentiment: number) => {
+    if (reaction) {
       Toast.show({
         type: "error",
-        text1: "Error",
-        text2: postSaved ? "Failed to unsave post!" : "Failed to save post!",
-        visibilityTime: 1000,
+        text1: "On cooldown",
+        text2: "Reaction on cooldown",
+        visibilityTime: 500,
       });
+      return;
     }
+
+    if (currentReaction != "") {
+      if (reactionInfo[currentReaction] != 0) {
+        reactionInfo[currentReaction] -= 1;
+      }
+    }
+    if (reaction_sentiment == 1.0) {
+      reactionInfo["love"] += 1;
+      setcurrentReaction("love");
+    } else if (reaction_sentiment == 0.75) {
+      reactionInfo["smile"] += 1;
+      setcurrentReaction("smile");
+    } else if (reaction_sentiment == 0.3) {
+      reactionInfo["pensive"] += 1;
+      setcurrentReaction("pensive");
+    } else if (reaction_sentiment == 0.5) {
+      reactionInfo["surprised"] += 1;
+      setcurrentReaction("surprised");
+    } else if (reaction_sentiment == 0.0) {
+      reactionInfo["angry"] += 1;
+      setcurrentReaction("angry");
+    }
+
+    setreactionInfo(reactionInfo);
   };
 
   const savePost = async (e: any) => {
@@ -150,12 +187,7 @@ const ArticleDisplay = () => {
       return;
     }
     setrunningSave(true);
-    Toast.show({
-      type: "info",
-      text1: postSaved ? "Unsaving post!" : "Saving post!",
-      text2: "Give it a bit...",
-      visibilityTime: 200000,
-    });
+    setPostSaved(!postSaved);
     try {
       const response = await fetch(apiUrl + "/articles/save", {
         method: "POST",
@@ -171,16 +203,19 @@ const ArticleDisplay = () => {
           save: !postSaved,
         }),
       });
-      const responseJson = await response.json();
-      if (responseJson) {
-        setPostSaved(!postSaved);
-        Toast.show({
-          type: "success",
-          text1: postSaved ? "Post unsaved!" : "Post saved!",
-          text2: postSaved ? "" : "View in your saved posts",
-          visibilityTime: 1000,
-        });
+
+      if (response.ok) {
+        if (!postSaved) {
+          Toast.show({
+            type: "success",
+            text1: "Post saved!",
+            text2: "View in your saved posts",
+            onPress: () => router.push("/saved"),
+            visibilityTime: 1000,
+          });
+        }
       } else {
+        setPostSaved(!postSaved);
         Toast.show({
           type: "error",
           text1: "Error",
@@ -207,7 +242,6 @@ const ArticleDisplay = () => {
       try {
         let reloading = true;
         while (reloading) {
-          console.log(new Date().getTime() / 1000);
           const response = await fetch(apiUrl + "/articles/article", {
             method: "POST",
             headers: {
@@ -242,14 +276,12 @@ const ArticleDisplay = () => {
           }
           const responseJson = await response.json();
           reloading = false;
-          console.log(responseJson);
           setnewsArticle(responseJson["article_info"]);
-          for (let reaction of responseJson["reaction_info"]) {
-            if (reaction["interaction"] == 5) {
-              setPostSaved(true);
-            }
+          setreactionInfo(responseJson["reaction_info"]["reactions"]);
+          setcurrentReaction(responseJson["reaction_info"]["current_reaction"]);
+          if (responseJson["reaction_info"]["post_saved"]) {
+            setPostSaved(true);
           }
-          setreactionInfo(responseJson["reaction_info"]);
           setisLoaded(true);
         }
       } catch (e) {
@@ -262,6 +294,9 @@ const ArticleDisplay = () => {
   if (!isLoaded) {
     return (
       <View className="w-full h-full flex justify-center items-center">
+        <TouchableOpacity className="absolute top-7 left-3" onPress={back}>
+          <LucideChevronLeft size={28} className="text-black" />
+        </TouchableOpacity>
         <ActivityIndicator color="black" className="mb-3" />
       </View>
     );
@@ -271,7 +306,10 @@ const ArticleDisplay = () => {
         className="bg-white h-full w-full"
         style={{ flex: 1, paddingTop: StatusBar.currentHeight }}
       >
-        <ScrollView>
+        <ScrollView
+          onScroll={handleScroll}
+          onContentSizeChange={handleContentSizeChange}
+        >
           <View className="flex flex-row px-3 pt-2 items-center">
             <TouchableOpacity onPress={back}>
               <LucideChevronLeft size={28} className="text-black" />
@@ -348,33 +386,40 @@ const ArticleDisplay = () => {
               </View>
               <View className="py-3 flex flex-col">
                 <View className="flex flex-row gap-2">
-                  <TouchableOpacity className="border border-red-600 py-2 px-1 rounded-2xl">
-                    <Text className="text-sm">❤️ 120</Text>
+                  <TouchableOpacity
+                    onPress={() => reactionPost(1.0)}
+                    className="border border-red-600 py-2 px-1 rounded-2xl"
+                  >
+                    <Text className="text-sm">❤️ {reactionInfo["love"]}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity className="border border-yellow-400 py-2 px-1 rounded-2xl">
-                    <Text className="text-sm">😂 120</Text>
+                  <TouchableOpacity
+                    onPress={() => reactionPost(0.75)}
+                    className="border border-yellow-400 py-2 px-1 rounded-2xl"
+                  >
+                    <Text className="text-sm">😂 {reactionInfo["smile"]}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity className="border border-yellow-400 py-2 px-1 rounded-2xl">
-                    <Text className="text-sm">😔 120</Text>
+                  <TouchableOpacity
+                    onPress={() => reactionPost(0.3)}
+                    className="border border-yellow-400 py-2 px-1 rounded-2xl"
+                  >
+                    <Text className="text-sm">
+                      😔 {reactionInfo["pensive"]}
+                    </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity className="border border-yellow-400 py-2 px-1 rounded-2xl">
-                    <Text className="text-sm">😲 120</Text>
+                  <TouchableOpacity
+                    onPress={() => reactionPost(0.5)}
+                    className="border border-yellow-400 py-2 px-1 rounded-2xl"
+                  >
+                    <Text className="text-sm">
+                      😲 {reactionInfo["surprised"]}
+                    </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity className="border border-orange-600 py-2 px-1 rounded-2xl">
-                    <Text className="text-sm">😡 120</Text>
+                  <TouchableOpacity
+                    onPress={() => reactionPost(0.0)}
+                    className="border border-orange-600 py-2 px-1 rounded-2xl"
+                  >
+                    <Text className="text-sm">😡 {reactionInfo["angry"]}</Text>
                   </TouchableOpacity>
-                </View>
-                <View className="flex flex-col pt-2 gap-1">
-                  <Text className="text-primary text-lg">Comments</Text>
-                  <TextInput
-                    editable
-                    multiline
-                    numberOfLines={4}
-                    maxLength={40}
-                    // onChangeText={text => onChangeText(text)}
-                    // value={value}
-                    className="border px-3 py-2 rounded-xl"
-                  />
                 </View>
               </View>
             </View>

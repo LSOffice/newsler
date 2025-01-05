@@ -36,14 +36,81 @@ const Home = () => {
   const [dataSource, setDataSource] = useState([{}]);
   const [offset, setOffset] = useState(0);
   const [isListEnd, setIsListEnd] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selectedIndex, setSelectedIndex] = useState(1);
   const [yOffset, setyOffset] = useState(0);
   const [loadingNewPage, setloadingNewPage] = useState(false);
+  const [preventOnce, setPreventOnce] = useState(false);
+  const [navigationTabs, setNavigationTabs] = useState([]);
+  const [isLoading, setisLoading] = useState(false);
+  const [userId, setuserId] = useState("");
 
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
+  const getData = () => {
+    if (!isRefresh) {
+      setisRefresh(true);
+    }
+  };
+
   useEffect(() => {
     getData();
+    const fetchData = async () => {
+      setuserId(await AsyncStorage.getItem("userId"));
+      try {
+        let loading = true;
+        while (loading) {
+          setisLoading(true);
+          setNavigationTabs([]);
+          const response = await fetch(apiUrl + "/articles/headers", {
+            method: "POST",
+            headers: {
+              Accept: "application/json",
+              Authorization:
+                "Bearer " + (await AsyncStorage.getItem("session_token")),
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              user_id: await AsyncStorage.getItem("userId"),
+            }),
+          });
+          if (response.status === 308) {
+            const newResponse = await fetch(apiUrl + "/auth/refreshsession", {
+              method: "POST",
+              headers: {
+                Accept: "application/json",
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                refresh_token: await AsyncStorage.getItem("refresh_token"),
+                user_id: await AsyncStorage.getItem("userId"),
+              }),
+            });
+            const content = await newResponse.json();
+            await AsyncStorage.setItem(
+              "session_token",
+              content["session_token"],
+            );
+            continue;
+          }
+          loading = false;
+          const responseJson = await response.json();
+          let count = 0;
+          for (let header of responseJson) {
+            navigationTabs.push({
+              id: count,
+              name: header,
+            });
+            count++;
+          }
+          setNavigationTabs(navigationTabs);
+          setisLoading(false);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    fetchData();
   }, []);
 
   useEffect(() => {
@@ -108,30 +175,6 @@ const Home = () => {
     fetchData();
   }, [isRefresh]);
 
-  const numOfTabs = 4;
-  const NavigationTabs = [
-    {
-      id: 0,
-      name: "Trending",
-    },
-    {
-      id: 1,
-      name: "Hong Kong",
-    },
-    {
-      id: 2,
-      name: "Sports",
-    },
-    {
-      id: 3,
-      name: "Politics",
-    },
-    {
-      id: 4,
-      name: "Pop Culture",
-    },
-  ];
-
   const onPress = (route: RouteProps) => {
     setSelectedIndex(route.id);
     getData();
@@ -142,12 +185,6 @@ const Home = () => {
       setDataSource([...newsArticles]);
     } else {
       setDataSource([]);
-    }
-  };
-
-  const getData = () => {
-    if (!isRefresh) {
-      setisRefresh(true);
     }
   };
 
@@ -168,6 +205,7 @@ const Home = () => {
       <TouchableOpacity
         onPress={() => getItem(item)}
         className="border-[0.5px] rounded-2xl border-tertiary flex flex-col h-56"
+        key={item.article_id}
       >
         <View className="h-full flex flex-col">
           {item.image_uri ? (
@@ -201,6 +239,7 @@ const Home = () => {
       <TouchableOpacity
         onPress={() => getItem(item)}
         className="border-[0.5px] rounded-2xl border-tertiary flex flex-col h-48"
+        key={item.article_id}
       >
         <View className="h-3/4">
           {item.image_uri ? (
@@ -261,6 +300,7 @@ const Home = () => {
       e.nativeEvent.contentOffset.y > 0 &&
       yOffset > 0
     ) {
+      setPreventOnce(true);
       if (e.nativeEvent.contentOffset.y >= 1700 && offset == 0) {
         setOffset(1);
         try {
@@ -359,9 +399,13 @@ const Home = () => {
       }
     } else {
       // going up
-      if (yOffset < 0) {
-        setisRefresh(true);
-        console.log("swipe up and refresh");
+      if (yOffset < -10) {
+        if (preventOnce) {
+          // first scroll up doesn't immediately reload
+          setTimeout(() => setPreventOnce(false), 500);
+        } else {
+          setisRefresh(true);
+        }
       }
     }
 
@@ -405,25 +449,30 @@ const Home = () => {
           </View>
         </View>
         <View className="flex flex-row items-center">
-          <HorizontalScrollMenu
-            items={NavigationTabs}
-            onPress={onPress}
-            selected={selectedIndex}
-            activeBackgroundColor={`${selectedIndex == 0 ? "#FCA311" : "#275F6F"}`}
-            activeTextColor={`${selectedIndex == 0 ? "black" : "white"}`}
-            buttonStyle={{
-              borderColor: "white",
-            }}
-            textStyle={{
-              color: "#275F6F",
-            }}
-          />
+          {isLoading ? (
+            <></>
+          ) : (
+            <HorizontalScrollMenu
+              items={navigationTabs}
+              onPress={onPress}
+              selected={selectedIndex}
+              activeBackgroundColor={`${selectedIndex == 1 ? "#FCA311" : "#275F6F"}`}
+              activeTextColor={`${selectedIndex == 1 ? "black" : "white"}`}
+              buttonStyle={{
+                borderColor: "white",
+                minWidth: 105,
+              }}
+              textStyle={{
+                color: "#275F6F",
+              }}
+            />
+          )}
         </View>
       </View>
 
       {
         <View>
-          {isRefresh ? (
+          {isRefresh || isLoading ? (
             <ActivityIndicator color="black" className="mb-3" />
           ) : null}
         </View>
@@ -440,7 +489,7 @@ const Home = () => {
               }}
               className="w-8 h-8 rounded-full"
             />
-            <Text className="ml-3 text-base font-semibold">James Baker</Text>
+            <Text className="ml-3 text-base font-semibold">{userId}</Text>
             <View className="ml-auto flex flex-row">
               <Image
                 source={images.logo}
@@ -457,22 +506,35 @@ const Home = () => {
             <TouchableOpacity className="border-2 mt-1 py-2 px-3 rounded-2xl">
               <Text className="text-base">Change password</Text>
             </TouchableOpacity>
-            <TouchableOpacity className="border-2 mt-1 py-2 px-3 rounded-2xl border-red-600">
-              <Text className="text-base text-red-600">Delete account</Text>
+            <TouchableOpacity
+              onPress={async () => {
+                await AsyncStorage.removeItem("session_token");
+                await AsyncStorage.removeItem("refresh_token");
+                await AsyncStorage.removeItem("userId");
+                setUserDialogVisible(false);
+                router.push("/login");
+              }}
+              className="border-2 mt-1 py-2 px-3 rounded-2xl border-red-600"
+            >
+              <Text className="text-base text-red-600">Log-out</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Dialog>
 
-      <FlatList
-        showsVerticalScrollIndicator={false}
-        data={dataSource}
-        keyExtractor={(item, index) => index.toString()}
-        ItemSeparatorComponent={ItemSeperatorView}
-        renderItem={ItemView}
-        className="px-4"
-        onScroll={handleScroll}
-      />
+      {isLoading ? (
+        <></>
+      ) : (
+        <FlatList
+          showsVerticalScrollIndicator={false}
+          data={dataSource}
+          keyExtractor={(item, index) => index.toString()}
+          ItemSeparatorComponent={ItemSeperatorView}
+          renderItem={ItemView}
+          className="px-4"
+          onScroll={handleScroll}
+        />
+      )}
     </SafeAreaView>
   );
 };

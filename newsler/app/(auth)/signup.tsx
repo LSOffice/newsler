@@ -27,8 +27,6 @@ const SignUp = () => {
   });
 
   const submit = async (e: any) => {
-    console.log(e);
-
     if (form.email == "" || form.password == "") {
       Toast.show({
         type: "error",
@@ -48,6 +46,12 @@ const SignUp = () => {
     }
 
     try {
+      Toast.show({
+        type: "info",
+        visibilityTime: 200000,
+        text1: "Signing up",
+        text2: "Give it a bit",
+      });
       const response = await fetch(apiUrl + "/auth/signup", {
         method: "POST",
         headers: {
@@ -59,7 +63,12 @@ const SignUp = () => {
 
       const content = await response.json();
       if (!content["signup"]) {
-        alert("Signup failed");
+        Toast.show({
+          type: "error",
+          visibilityTime: 2000,
+          text1: "Sign up failed",
+          text2: "(Account not created - register failed)",
+        });
         return;
       }
       await AsyncStorage.setItem("userId", content["user_id"]);
@@ -72,26 +81,37 @@ const SignUp = () => {
         },
         body: JSON.stringify(form),
       });
-
-      const loginContent = await loginResponse.json();
       if (loginResponse.status != 200) {
-        alert("Login failed");
+        Toast.show({
+          type: "error",
+          visibilityTime: 2000,
+          text1: "Sign up failed",
+          text2: "(Account created - login failed)",
+        });
         return;
       }
+      const loginContent = await loginResponse.json();
+
+      Toast.show({
+        type: "success",
+        visibilityTime: 200,
+        text1: "You're all signed up",
+        text2: "Welcome to Newsler!",
+      });
+      console.log(loginContent);
+
       await AsyncStorage.setItem(
         "session_token",
-        loginContent["session_token"],
+        await loginContent["session_token"],
       );
-      // user change
-      await AsyncStorage.setItem("userId", loginContent["user_id"]);
+      await AsyncStorage.setItem("userId", await loginContent["user_id"]);
       await AsyncStorage.setItem(
         "refresh_token",
-        loginContent["refresh_token"],
+        await loginContent["refresh_token"],
       );
       router.push("/home");
     } catch (e) {
       console.error(e);
-      alert("An error occurred. Please try again");
     }
   };
 
