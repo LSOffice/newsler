@@ -127,7 +127,6 @@ const Home = () => {
         try {
           let loading = true;
           while (loading) {
-            console.log(new Date().getTime() / 1000);
             const response = await fetch(apiUrl + "/articles/feed", {
               method: "POST",
               headers: {
@@ -142,7 +141,6 @@ const Home = () => {
                 page: 1,
               }),
             });
-            console.log(new Date().getTime() / 1000);
             if (response.status === 308) {
               const newResponse = await fetch(apiUrl + "/auth/refreshsession", {
                 method: "POST",
