@@ -1,7 +1,9 @@
-from dotenv import load_dotenv
-import mysql.connector as mysql
 import os
-from .controllers import auth, articles, users
+
+import mysql.connector as mysql
+from dotenv import load_dotenv
+
+from .controllers import articles, auth, users
 
 load_dotenv()
 
@@ -15,6 +17,7 @@ async def articles_user_article_view_create(query: dict):
     )
     return await articles.user_article_view_create(mydb, query=query)
 
+
 def articles_get_article_details_and_interactions(query: dict):
     mydb = mysql.connect(
         host=os.getenv("DB_HOST"),
@@ -23,6 +26,7 @@ def articles_get_article_details_and_interactions(query: dict):
         password=os.getenv("DB_PASSWORD"),
     )
     return articles.get_article_details_and_interactions(mydb, query=query)
+
 
 def articles_get_all_articles():
     mydb = mysql.connect(
@@ -113,6 +117,7 @@ def articles_get_article_interaction_information(query: dict):
     )
     return articles.get_article_interaction_information(mydb, query=query)
 
+
 async def articles_user_set_age_and_gender(query: dict):
     mydb = mysql.connect(
         host=os.getenv("DB_HOST"),
@@ -121,6 +126,7 @@ async def articles_user_set_age_and_gender(query: dict):
         password=os.getenv("DB_PASSWORD"),
     )
     return await articles.user_set_age_and_gender(mydb, query=query)
+
 
 def articles_get_recent_articles():
     mydb = mysql.connect(
@@ -170,16 +176,6 @@ def auth_update_user_session(query: dict):
         password=os.getenv("DB_PASSWORD"),
     )
     return auth.update_user_session(mydb, query=query)
-
-
-def auth_is_session_token_valid(query: dict):
-    mydb = mysql.connect(
-        host=os.getenv("DB_HOST"),
-        database=os.getenv("DB_DATABASE"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-    )
-    return auth.is_session_token_valid(mydb, query=query)
 
 
 def auth_update_user_session_token_only(query: dict):

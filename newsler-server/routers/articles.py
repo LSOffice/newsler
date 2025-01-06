@@ -1,11 +1,18 @@
+import asyncio
+import os
+import random
 from code import interact
+from datetime import date, datetime
+
+import bcrypt
+import google.generativeai as genai
+import pandas as pd
+import pycountry
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
-from datetime import date, datetime
-import pandas as pd
-import pycountry
-import bcrypt
+
+from ..db.controllers import auth
 from ..db.init import (
     articles_get_all_articles,
     articles_get_article_details_and_interactions,
@@ -24,14 +31,9 @@ from ..db.init import (
     articles_user_set_age_and_gender,
     articles_user_unsave_article,
     auth_get_user_recommendation_index,
-    auth_is_session_token_valid,
     auth_return_user_object_from_user_id,
     users_get_users_based_on_rec_criteria,
 )
-import google.generativeai as genai
-import os
-import random
-import asyncio
 
 load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
@@ -77,18 +79,22 @@ feeds = {}
 
 
 async def is_logged_in(req: Request) -> bool:
+    print("logged")
+    print(datetime.now().timestamp())
     try:
         session_token = req.headers["authorization"]
     except KeyError:
         return False
     session_token = session_token.replace("Bearer ", "")
-    auth_obj = auth_is_session_token_valid({"session_token": session_token})
-
+    print(datetime.now().timestamp())
+    print("abcd")
+    auth_obj = await auth.is_session_token_valid({"session_token": session_token})
+    print("abcd1")
     if not auth_obj[0]:
         raise HTTPException(status_code=308, detail="Redirect /login")
     if not auth_obj[1]:
         raise HTTPException(status_code=308, detail="Redirect /refreshsession")
-
+    print(datetime.now().timestamp())
     return True
 
 
@@ -202,6 +208,7 @@ async def user_article_ratings(users: list) -> dict:
 
 @router.post("/feed")
 async def feed(body: Feed, auth_headers: bool = Depends(is_logged_in)):
+    print(datetime.now().timestamp())
     user_id = body.user_id
     topic = body.topic
     page = body.page
@@ -211,7 +218,8 @@ async def feed(body: Feed, auth_headers: bool = Depends(is_logged_in)):
 
     if user_id == None:
         raise HTTPException(status_code=400, detail="Invalid credentials")
-
+    print(datetime.now().timestamp())
+    return []
     # through genre find list of articles, then find people with similar tastes
     # preload 20 posts, then as they reach 15 load 10
     if topic == "Trending":
@@ -245,7 +253,17 @@ async def feed(body: Feed, auth_headers: bool = Depends(is_logged_in)):
             {"user_id": user_id, "age": age, "gender": gender, "geolocation": location}
         )
 
-        uar = await user_article_ratings([user[0] for user in users])
+        try:
+            uar = await user_article_ratings([user[0] for user in users])
+        except IndexError:
+            articles = articles_get_all_articles()
+            random.shuffle(articles)
+
+            if page == 1:
+                return articles[0:20]
+            else:
+                return articles[20 + int(page - 2) * 30 : 20 + int(page - 2) * 30 + 30]  # type: ignore
+
         if str(user_id) not in feeds:
             feeds[str(user_id)] = []
 

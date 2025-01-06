@@ -22,18 +22,25 @@ def get_session_from_user_id(db, query: dict):
     return [True, results[0]]
 
 
-def is_session_token_valid(db, query: dict):
-    cursor = db.cursor()
-    session_token = query["session_token"]
-
-    sql = "SELECT * FROM sessions WHERE session_token=%s"
-    cursor.execute(sql, (bcrypt.hashpw(session_token.encode(), salt).decode(),))
-    results = cursor.fetchall()
-
-    if len(results) > 0:
-        return [True, datetime.fromtimestamp(results[0][4]) > datetime.now(), results[0][0]]
-    else:
-        return [False]
+async def is_session_token_valid(query: dict):
+    conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE"))  # type: ignore
+    async with conn.cursor() as cur:
+        print("loaded onto program")
+        print(datetime.now().timestamp())
+        session_token = query["session_token"]
+        print(datetime.now().timestamp())
+        sql = "SELECT * FROM sessions WHERE session_token=%s"
+        await cur.execute(sql, (bcrypt.hashpw(session_token.encode(), salt).decode(),))
+        results = await cur.fetchall()
+        print(datetime.now().timestamp())
+        if len(results) > 0:
+            return [
+                True,
+                datetime.fromtimestamp(results[0][4]) > datetime.now(),
+                results[0][0],
+            ]
+        else:
+            return [False]
 
 
 def update_user_session(db, query: dict):
@@ -142,12 +149,14 @@ def update_user_recommendation_index(db, query: dict):
     cursor.execute(sql, val)
     db.commit()
 
+
 def get_user_recommendation_index(db, query: dict):
     cursor = db.cursor()
     sql = "SELECT * FROM user_recommendation_index WHERE user_id=%s"
-    cursor.execute(sql, (query['user_id'],))
+    cursor.execute(sql, (query["user_id"],))
 
     return cursor.fetchone()
+
 
 def create_user_recommendation_index(db, query: dict):
     cursor = db.cursor()
