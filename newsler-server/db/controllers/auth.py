@@ -1,6 +1,8 @@
+from tracemalloc import start
 import uuid
 from datetime import datetime
-
+import aiomysql
+import os
 import bcrypt
 
 salt = open("config.txt", "r").readlines()[0].replace("salt=", "").encode()
@@ -25,19 +27,17 @@ def get_session_from_user_id(db, query: dict):
 async def is_session_token_valid(query: dict):
     conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE"))  # type: ignore
     async with conn.cursor() as cur:
-        print("loaded onto program")
-        print(datetime.now().timestamp())
         session_token = query["session_token"]
-        print(datetime.now().timestamp())
-        sql = "SELECT * FROM sessions WHERE session_token=%s"
+
+
+        sql = "SELECT user_id, sessionExpiresAt FROM sessions WHERE session_token=%s"
         await cur.execute(sql, (bcrypt.hashpw(session_token.encode(), salt).decode(),))
         results = await cur.fetchall()
-        print(datetime.now().timestamp())
         if len(results) > 0:
             return [
                 True,
-                datetime.fromtimestamp(results[0][4]) > datetime.now(),
-                results[0][0],
+                datetime.fromtimestamp(results[0][1]) > datetime.now(),
+                results[0][0]
             ]
         else:
             return [False]
@@ -150,12 +150,13 @@ def update_user_recommendation_index(db, query: dict):
     db.commit()
 
 
-def get_user_recommendation_index(db, query: dict):
-    cursor = db.cursor()
-    sql = "SELECT * FROM user_recommendation_index WHERE user_id=%s"
-    cursor.execute(sql, (query["user_id"],))
-
-    return cursor.fetchone()
+async def get_user_recommendation_index(query: dict):
+    conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE"))  # type: ignore
+    async with conn.cursor() as cur:
+        sql = "SELECT * FROM user_recommendation_index WHERE user_id=%s"
+        await cur.execute(sql, (query["user_id"],))
+        result = await cur.fetchone()
+        return result
 
 
 def create_user_recommendation_index(db, query: dict):

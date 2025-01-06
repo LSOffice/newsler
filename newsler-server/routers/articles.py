@@ -3,6 +3,7 @@ import os
 import random
 from code import interact
 from datetime import date, datetime
+import threading
 
 import bcrypt
 import google.generativeai as genai
@@ -12,9 +13,8 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from ..db.controllers import auth
+from ..db.controllers import auth, users, articles_c
 from ..db.init import (
-    articles_get_all_articles,
     articles_get_article_details_and_interactions,
     articles_get_article_from_article_id,
     articles_get_article_interaction_information,
@@ -30,9 +30,7 @@ from ..db.init import (
     articles_user_save_article,
     articles_user_set_age_and_gender,
     articles_user_unsave_article,
-    auth_get_user_recommendation_index,
     auth_return_user_object_from_user_id,
-    users_get_users_based_on_rec_criteria,
 )
 
 load_dotenv()
@@ -76,25 +74,23 @@ class Headers(BaseModel):
 
 router = APIRouter(prefix="/articles", tags=["articles"])
 feeds = {}
-
+valid_token_cache = {}
+# "token": {expiresAt}
 
 async def is_logged_in(req: Request) -> bool:
-    print("logged")
-    print(datetime.now().timestamp())
     try:
         session_token = req.headers["authorization"]
     except KeyError:
         return False
+
     session_token = session_token.replace("Bearer ", "")
-    print(datetime.now().timestamp())
-    print("abcd")
+
     auth_obj = await auth.is_session_token_valid({"session_token": session_token})
-    print("abcd1")
     if not auth_obj[0]:
         raise HTTPException(status_code=308, detail="Redirect /login")
     if not auth_obj[1]:
         raise HTTPException(status_code=308, detail="Redirect /refreshsession")
-    print(datetime.now().timestamp())
+
     return True
 
 
@@ -110,7 +106,7 @@ async def recent_x_user_article_interactions_ranked(user_id: str, x: int) -> lis
         {"x": x, "user_id": user_id}
     )
     articles = {}
-    for interaction in interactions:
+    for interaction in interactions: # type: ignore
         recency_factor = 14  # number of days considered recent
         total_weighting = 0
 
@@ -165,7 +161,7 @@ async def user_article_ratings(users: list) -> dict:
     for user in users:
         articles = {}
 
-        for interaction in interactions:
+        for interaction in interactions: # type: ignore
             if interaction[0] != user:
                 continue
             recency_factor = 14  # number of days considered recent
@@ -208,7 +204,7 @@ async def user_article_ratings(users: list) -> dict:
 
 @router.post("/feed")
 async def feed(body: Feed, auth_headers: bool = Depends(is_logged_in)):
-    print(datetime.now().timestamp())
+
     user_id = body.user_id
     topic = body.topic
     page = body.page
@@ -218,17 +214,18 @@ async def feed(body: Feed, auth_headers: bool = Depends(is_logged_in)):
 
     if user_id == None:
         raise HTTPException(status_code=400, detail="Invalid credentials")
-    print(datetime.now().timestamp())
-    return []
+    starttime = datetime.now()
+
     # through genre find list of articles, then find people with similar tastes
     # preload 20 posts, then as they reach 15 load 10
     if topic == "Trending":
+        # loop = asyncio.get_running_loop()
+        # thread = threading.Thread(target=loop.run_until_complete, args=(worker(query),))
 
-        recommendation_indexes = auth_get_user_recommendation_index(
+        recommendation_indexes = await auth.get_user_recommendation_index(
             {"user_id": user_id}
         )
         # query parameters:
-
         # ignore device_type for now
 
         location = (
@@ -247,16 +244,15 @@ async def feed(body: Feed, auth_headers: bool = Depends(is_logged_in)):
         # +- 8 years
         gender = recommendation_indexes[5]
         # same gender but low weighting
-
         # ignore preferred_format for now
-        users = users_get_users_based_on_rec_criteria(
+        us = await users.get_users_based_on_rec_criteria(
             {"user_id": user_id, "age": age, "gender": gender, "geolocation": location}
         )
 
         try:
-            uar = await user_article_ratings([user[0] for user in users])
+            uar = await user_article_ratings([user[0] for user in us])
         except IndexError:
-            articles = articles_get_all_articles()
+            articles = await articles_c.get_all_articles()
             random.shuffle(articles)
 
             if page == 1:
@@ -283,8 +279,7 @@ async def feed(body: Feed, auth_headers: bool = Depends(is_logged_in)):
         df = pd.DataFrame(rows)
         article_ratings = df.groupby("article_id")["rating"].mean()
         article_ids = article_ratings.sort_values(ascending=False)
-
-        articles = articles_get_all_articles()
+        articles = await articles_c.get_all_articles()
         filtered_articles = articles.copy()
         article_id_to_article = {article["article_id"]: article for article in articles}
 
@@ -339,7 +334,7 @@ async def feed(body: Feed, auth_headers: bool = Depends(is_logged_in)):
             article_list.append(article_id_to_article[article_id])
 
         feeds[str(requester_id)].extend(article_id_list)
-
+        
         return article_list
 
     elif pycountry.countries.get(name=topic):

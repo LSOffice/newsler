@@ -3,7 +3,8 @@ import os
 import mysql.connector as mysql
 from dotenv import load_dotenv
 
-from .controllers import articles, auth, users
+from .controllers import auth, users
+from .controllers import articles_c as articles
 
 load_dotenv()
 
@@ -26,17 +27,6 @@ def articles_get_article_details_and_interactions(query: dict):
         password=os.getenv("DB_PASSWORD"),
     )
     return articles.get_article_details_and_interactions(mydb, query=query)
-
-
-def articles_get_all_articles():
-    mydb = mysql.connect(
-        host=os.getenv("DB_HOST"),
-        database=os.getenv("DB_DATABASE"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-    )
-    return articles.get_all_articles(mydb)
-
 
 def articles_get_articles_of_topic(query: dict):
     mydb = mysql.connect(
@@ -256,23 +246,3 @@ def auth_update_user_recommendation_index(query: dict):
         password=os.getenv("DB_PASSWORD"),
     )
     return auth.update_user_recommendation_index(mydb, query=query)
-
-
-def auth_get_user_recommendation_index(query: dict):
-    mydb = mysql.connect(
-        host=os.getenv("DB_HOST"),
-        database=os.getenv("DB_DATABASE"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-    )
-    return auth.get_user_recommendation_index(mydb, query=query)
-
-
-def users_get_users_based_on_rec_criteria(query: dict):
-    mydb = mysql.connect(
-        host=os.getenv("DB_HOST"),
-        database=os.getenv("DB_DATABASE"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-    )
-    return users.get_users_based_on_rec_criteria(mydb, query=query)

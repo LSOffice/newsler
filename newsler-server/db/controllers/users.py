@@ -1,11 +1,16 @@
-salt = open("config.txt", "r").readlines()[0].replace("salt=", "").encode()
+import aiomysql
+import os
 
+from dotenv import load_dotenv
 
-def get_users_based_on_rec_criteria(db, query: dict):
-    cursor = db.cursor()
-    sql = "SELECT * FROM user_recommendation_index WHERE user_id!=%s"
-    cursor.execute(sql, (query["user_id"],))
-    users = cursor.fetchall()
+load_dotenv()
+
+async def get_users_based_on_rec_criteria(query: dict):
+    conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE"))  # type: ignore
+    async with conn.cursor() as cur:
+        sql = "SELECT * FROM user_recommendation_index WHERE user_id!=%s"
+        await cur.execute(sql, (query["user_id"],))
+        users = await cur.fetchall()
 
     if "age" in query:
         condition = lambda x: (abs(x[4] - query["age"]) > 7) or x[4] == -1

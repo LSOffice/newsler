@@ -1,5 +1,8 @@
+from tracemalloc import start
 from uuid import uuid4
 from datetime import datetime
+import os
+import aiomysql
 
 import bcrypt
 
@@ -509,7 +512,7 @@ def get_articles_of_topic(db, query: dict):
     return cursor.fetchall()
 
 
-def get_all_articles(db):
+async def get_all_articles():
     # cursor = db.cursor()
     # sql = "SELECT * FROM articles"
     # cursor.execute(sql)
@@ -541,49 +544,44 @@ def get_all_articles(db):
     # return articles
 
     # optimised version underneath
-
-    cursor = db.cursor()
-
-    sql = """
-    SELECT 
-        a.article_id, 
-        a.title, 
-        a.body, 
-        a.author_id, 
-        a.created_at, 
-        a.topic, 
-        a.country, 
-        a.content_form, 
+    starttime = datetime.now()
+    conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE")) # type: ignore
+    async with conn.cursor() as cur:
+        sql = """
+        SELECT
+        a.article_id,
+        a.title,
+        a.body,
+        a.author_id,
+        a.created_at,
+        a.topic,
+        a.country,
+        a.content_form,
         a.image_uri,
         au.author_name,
         ag.agency_name
-    FROM 
-        articles a
-    JOIN 
-        authors au ON a.author_id = au.author_id
-    JOIN 
-        agencies ag ON au.agency_id = ag.agency_id;
-    """
+        FROM articles a
+        INNER JOIN authors au ON a.author_id = au.author_id
+        LEFT JOIN agencies ag ON au.agency_id = ag.agency_id;
+        """
+        await cur.execute(sql)
+        results = await cur.fetchall()
 
-    cursor.execute(sql)
-    results = cursor.fetchall()
+        articles = [
+            {
+                "article_id": row[0],
+                "title": row[1].replace("\n", ""),
+                "author": row[9],
+                "company": row[10],
+                "created_at": row[4],
+                "verified": True,
+                "live": False,
+                "image_uri": row[8],
+            }
+            for row in results
+        ]
 
-    articles = [
-        {
-            "article_id": row[0],
-            "title": row[1].replace("\n", ""),
-            "author": row[9],
-            "company": row[10],
-            "created_at": row[4],
-            "verified": True,
-            "live": False,
-            "image_uri": row[8],
-        }
-        for row in results
-    ]
-    
-
-    return articles
+        return articles
 
 
 def get_x_global_most_interacted_articles(db, query: dict):

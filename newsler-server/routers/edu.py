@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from ..db.controllers import *
+from ..db.controllers import auth
 from ..db.controllers.edu import *
 
 load_dotenv()
@@ -67,22 +67,19 @@ router = APIRouter(prefix="/edu", tags=["education"])
 
 
 async def is_logged_in(req: Request) -> bool:
-    print("logged")
-    print(datetime.now().timestamp())
     try:
         session_token = req.headers["authorization"]
     except KeyError:
         return False
+
     session_token = session_token.replace("Bearer ", "")
-    print(datetime.now().timestamp())
-    print("abcd")
+
     auth_obj = await auth.is_session_token_valid({"session_token": session_token})
-    print("abcd1")
     if not auth_obj[0]:
         raise HTTPException(status_code=308, detail="Redirect /login")
     if not auth_obj[1]:
         raise HTTPException(status_code=308, detail="Redirect /refreshsession")
-    print(datetime.now().timestamp())
+
     return True
 
 
