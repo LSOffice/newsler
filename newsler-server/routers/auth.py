@@ -1,11 +1,14 @@
-from datetime import datetime, timezone, timedelta
+import asyncio
+import re
+from datetime import datetime, timedelta, timezone
 from http import client
 from uuid import uuid4
-from fastapi import APIRouter, Depends, HTTPException, Request
+
 import bcrypt
-from pydantic import BaseModel
 import requests
-import asyncio
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
+
 from ..db.init import (
     auth_create_session,
     auth_create_user,
@@ -17,7 +20,6 @@ from ..db.init import (
     auth_update_user_session,
     auth_update_user_session_token_only,
 )
-import re
 
 salt = open("config.txt", "r").readlines()[0].replace("salt=", "").encode()
 
@@ -102,7 +104,12 @@ async def refresh_session(refreshCredentials: SessionRefresh):
         }
     )
 
-    return {"session_token": session_token}
+    return {
+        "session_token": session_token,
+        "email": auth_return_user_object_from_user_id(
+            {"user_id": refreshCredentials.user_id}
+        )[1],
+    }
 
 
 # TODO: Can add inner join here (session and user data, if necessary)
@@ -139,7 +146,7 @@ async def login(login: Credentials, request: Request):
             }
         )
     else:
-    # if session doesn't exist already, it goes here
+        # if session doesn't exist already, it goes here
         session_token = str(uuid4())
         refresh_token = str(uuid4())
         auth_create_session(
@@ -153,7 +160,7 @@ async def login(login: Credentials, request: Request):
         )
 
     # client_host = request.client.host
-    client_host = "182.239.127.137"
+    client_host = "170.171.1.12"
     response = requests.get(
         "https://geolocation-db.com/json/" + client_host + "&position=true"
     ).json()
@@ -171,6 +178,7 @@ async def login(login: Credentials, request: Request):
         "refresh_token": refresh_token,
         "session_token": session_token,
         "user_id": user_id,
+        "email": login.email,
     }
 
 
@@ -195,7 +203,7 @@ async def signup(signupInfo: Credentials, request: Request):
         raise HTTPException(status_code=400, detail="Invalid credentials")
 
     # client_host = request.client.host
-    client_host = "182.239.127.137"
+    client_host = "170.171.1.12"
 
     response = requests.get(
         "https://geolocation-db.com/json/" + client_host + "&position=true"

@@ -1,9 +1,9 @@
+import os
+from datetime import datetime
 from tracemalloc import start
 from uuid import uuid4
-from datetime import datetime
-import os
-import aiomysql
 
+import aiomysql
 import bcrypt
 
 salt = open("config.txt", "r").readlines()[0].replace("salt=", "").encode()
@@ -73,79 +73,46 @@ def user_article_comment_create(db, query: dict):
 
     return True
 
+
 async def user_set_age_and_gender(db, query: dict):
     cursor = db.cursor()
-    headers = query['headers'][2:]
+    headers = query["headers"][2:]
 
     things = {
-        "Architecture": {
-            "age": 45,
-            "gender": "M"
-        },
-        "Art": {
-            "age": 38,
-            "gender": "W"
-        },
-        "Business": {
-            "age": 42,
-            "gender": "M"
-        },
-        "Crime": {
-            "age": 48,
-            "gender": "M"
-        },
-        "Entertainment": {
-            "age": 32,
-            "gender": "W"
-        },
-        "Health": {
-            "age": 45,
-            "gender": "W"
-        },
-        "Law": {
-            "age": 45,
-            "gender": "M"
-        },
-        "Lifestyle": {
-            "age": 35,
-            "gender": "W"
-        },
-        "Politics": {
-            "age": 50,
-            "gender": "M"
-        },
-        "Sports": {
-            "age": 38,
-            "gender": "M"
-        },
-        "Technology": {
-            "age": 30,
-            "gender": "M"
-        },
+        "Architecture": {"age": 45, "gender": "M"},
+        "Art": {"age": 38, "gender": "W"},
+        "Business": {"age": 42, "gender": "M"},
+        "Crime": {"age": 48, "gender": "M"},
+        "Entertainment": {"age": 32, "gender": "W"},
+        "Health": {"age": 45, "gender": "W"},
+        "Law": {"age": 45, "gender": "M"},
+        "Lifestyle": {"age": 35, "gender": "W"},
+        "Politics": {"age": 50, "gender": "M"},
+        "Sports": {"age": 38, "gender": "M"},
+        "Technology": {"age": 30, "gender": "M"},
     }
 
     totalAge = 0
-    genderCount = {
-        "M": 0,
-        "W": 0
-    }
-    
+    genderCount = {"M": 0, "W": 0}
+
     for header in headers:
-        totalAge += things[header]['age']
-        genderCount[things[header]['gender']] += 1
-    
+        totalAge += things[header]["age"]
+        genderCount[things[header]["gender"]] += 1
+
     sql = """
         UPDATE user_recommendation_index SET age = %s, gender = %s WHERE (user_id = %s)
     """
-    cursor.execute(sql, (totalAge / len(headers), sorted(genderCount.items())[0][0], query["user_id"]))
+    cursor.execute(
+        sql,
+        (totalAge / len(headers), sorted(genderCount.items())[0][0], query["user_id"]),
+    )
     db.commit()
-
 
 
 def user_article_reaction_create(db, query: dict):
     cursor = db.cursor(buffered=True)
     reaction_id = str(uuid4())
-        # Check for existing interaction (one query with JOIN)
+    # Check for existing interaction (one query with JOIN)
     check_sql = """
         SELECT *
         FROM user_article_interactions uai
@@ -170,14 +137,30 @@ def user_article_reaction_create(db, query: dict):
             DELETE FROM user_article_interactions
             WHERE user_id = %s AND article_id = %s AND interaction = %s
         """
-        cursor.execute(delete_sql, (query["user_id"], query["article_id"], 4,))
+        cursor.execute(
+            delete_sql,
+            (
+                query["user_id"],
+                query["article_id"],
+                4,
+            ),
+        )
 
     # Insert new interaction (using prepared statement)
     insert_sql = """
         INSERT INTO user_article_interactions (user_id, reaction_id, timestamp, article_id, interaction)
         VALUES (%s, %s, %s, %s, %s)
     """
-    cursor.execute(insert_sql, (query["user_id"], reaction_id, int(datetime.now().timestamp()), query["article_id"], 4))
+    cursor.execute(
+        insert_sql,
+        (
+            query["user_id"],
+            reaction_id,
+            int(datetime.now().timestamp()),
+            query["article_id"],
+            4,
+        ),
+    )
 
     insert_sql = """
         INSERT INTO article_reaction_information (reaction_id, reaction_sentiment)
@@ -186,13 +169,16 @@ def user_article_reaction_create(db, query: dict):
     cursor.execute(insert_sql, (reaction_id, query["reaction_sentiment"]))
 
     db.commit()
-    cursor.execute("""
+    cursor.execute(
+        """
     SELECT reaction_sentiment, COUNT(*) AS count
     FROM user_article_interactions uai
     JOIN article_reaction_information ari ON uai.reaction_id = ari.reaction_id
     WHERE uai.article_id = %s
     GROUP BY reaction_sentiment
-  """, (query["article_id"],))
+  """,
+        (query["article_id"],),
+    )
 
     reactions = {"love": 0, "smile": 0, "pensive": 0, "surprised": 0, "angry": 0}
     for row in cursor.fetchall():
@@ -213,7 +199,6 @@ def user_article_reaction_create(db, query: dict):
 
 async def user_save_article(db, query: dict):
     cursor = db.cursor()
-    print("received1")
     reaction_id = str(uuid4())
     sql = "INSERT INTO user_article_interactions (user_id, reaction_id, timestamp, article_id, interaction) VALUES (%s, %s, %s, %s, %s)"
     val = (
@@ -224,7 +209,6 @@ async def user_save_article(db, query: dict):
         5,
     )
     cursor.execute(sql, val)
-    print("done")
 
     db.commit()
 
@@ -402,6 +386,7 @@ def get_article_interaction_information(db, query: dict):
 
     return list(reaction_dbs.values())
 
+
 def get_article_details_and_interactions(db, query: dict):
     # really optimised single query to search for articles and interactions! (7s -> 3s)
     article_id = query["article_id"]
@@ -454,7 +439,11 @@ def get_article_details_and_interactions(db, query: dict):
     results = cursor.fetchall()
 
     article = None
-    interactions = {"post_saved": False, "reactions": {"love": 0, "smile": 0, "pensive": 0, "surprised": 0, "angry": 0}, "current_reaction": ""}
+    interactions = {
+        "post_saved": False,
+        "reactions": {"love": 0, "smile": 0, "pensive": 0, "surprised": 0, "angry": 0},
+        "current_reaction": "",
+    }
 
     for row in results:
         # Extract article details
@@ -479,37 +468,65 @@ def get_article_details_and_interactions(db, query: dict):
             if row[14] == 4:
                 if row[18] == 1.0:
                     if row[11] == user_id:
-                        interactions['current_reaction'] = "love"
+                        interactions["current_reaction"] = "love"
 
                     interactions["reactions"]["love"] += 1
                 elif row[18] == 0.75:
                     if row[11] == user_id:
-                        interactions['current_reaction'] = "smile"
+                        interactions["current_reaction"] = "smile"
                     interactions["reactions"]["smile"] += 1
                 elif row[18] == 0.3:
                     if row[11] == user_id:
-                        interactions['current_reaction'] = "pensive"
+                        interactions["current_reaction"] = "pensive"
                     interactions["reactions"]["pensive"] += 1
                 elif row[18] == 0.5:
                     if row[11] == user_id:
-                        interactions['current_reaction'] = "suprised"
+                        interactions["current_reaction"] = "suprised"
                     interactions["reactions"]["surprised"] += 1
                 elif row[18] == 0.0:
                     if row[11] == user_id:
-                        interactions['current_reaction'] = "angry"
+                        interactions["current_reaction"] = "angry"
                     interactions["reactions"]["angry"] += 1
 
-    return {
-        "article_info": article,
-        "reaction_info": interactions
-    }
+    return {"article_info": article, "reaction_info": interactions}
+
 
 def get_articles_of_topic(db, query: dict):
     cursor = db.cursor()
     bar = "%" + query["topic"] + "%"
-    sql = "SELECT * FROM articles WHERE topic LIKE %s"
+    sql = """SELECT
+        a.article_id,
+        a.title,
+        a.body,
+        a.author_id,
+        a.created_at,
+        a.topic,
+        a.country,
+        a.content_form,
+        a.image_uri,
+        au.author_name,
+        ag.agency_name
+        FROM articles a
+        INNER JOIN authors au ON a.author_id = au.author_id
+        LEFT JOIN agencies ag ON au.agency_id = ag.agency_id
+        WHERE topic LIKE %s;"""
     cursor.execute(sql, (bar,))
-    return cursor.fetchall()
+
+    results = cursor.fetchall()
+    articles = [
+        {
+            "article_id": row[0],
+            "title": row[1].replace("\n", ""),
+            "author": row[9],
+            "company": row[10],
+            "created_at": row[4],
+            "verified": True,
+            "live": False,
+            "image_uri": row[8],
+        }
+        for row in results
+    ]
+    return articles
 
 
 async def get_all_articles():
@@ -545,7 +562,7 @@ async def get_all_articles():
 
     # optimised version underneath
     starttime = datetime.now()
-    conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE")) # type: ignore
+    conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE"))  # type: ignore
     async with conn.cursor() as cur:
         sql = """
         SELECT
@@ -577,16 +594,12 @@ async def get_all_articles():
                 "verified": True,
                 "live": False,
                 "image_uri": row[8],
+                "topic": row[5],
+                "country": row[6],
             }
             for row in results
         ]
-
         return articles
-
-
-def get_x_global_most_interacted_articles(db, query: dict):
-    cursor = db.cursor()
-    sql = "SELECT * FROM user_recommendation_index "
 
 
 def get_saved_articles(db, query: dict):
@@ -636,9 +649,7 @@ def get_saved_articles(db, query: dict):
         }
         for article_id, title, body, author_id, created_at, topic, country, content_form, image_uri in cursor.fetchall()
     ]
-    print(articles)
     return articles
-
 
 
 def get_article_from_article_id(db, query: dict):
@@ -804,12 +815,82 @@ def get_x_user_article_interactions(db, query: dict):
         ORDER BY timestamp DESC
         LIMIT 0, %s;
         """
-    
+
     cursor.execute(sql, (user_id, user_id, user_id, user_id, user_id, x))
 
     results = cursor.fetchall()
 
     return results
+
+
+async def get_global_users_article_interactions():
+    conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE"))  # type: ignore
+    async with conn.cursor() as cur:
+        sql = """
+            SELECT 
+                uai.user_id, 
+                uai.reaction_id, 
+                uai.timestamp, 
+                uai.article_id, 
+                uai.interaction, 
+                avi.view_seconds AS engagement_data 
+            FROM 
+                user_article_interactions uai
+            JOIN 
+                article_view_information avi ON uai.reaction_id = avi.reaction_id
+            UNION ALL
+            SELECT 
+                uai.user_id, 
+                uai.reaction_id, 
+                uai.timestamp, 
+                uai.article_id, 
+                uai.interaction, 
+                asi.scroll_depth AS engagement_data
+            FROM 
+                user_article_interactions uai
+            JOIN 
+                article_scroll_information asi ON uai.reaction_id = asi.reaction_id
+            UNION ALL
+            SELECT 
+                uai.user_id, 
+                uai.reaction_id, 
+                uai.timestamp, 
+                uai.article_id, 
+                uai.interaction, 
+                aci.comment AS engagement_data
+            FROM 
+                user_article_interactions uai
+            JOIN 
+                article_comment_information aci ON uai.reaction_id = aci.reaction_id
+            UNION ALL
+            SELECT 
+                uai.user_id, 
+                uai.reaction_id, 
+                uai.timestamp, 
+                uai.article_id, 
+                uai.interaction, 
+                ari.reaction_sentiment AS engagement_data
+            FROM 
+                user_article_interactions uai
+            JOIN 
+                article_reaction_information ari ON uai.reaction_id = ari.reaction_id
+            UNION ALL
+            SELECT 
+                uai.user_id, 
+                uai.reaction_id, 
+                uai.timestamp, 
+                uai.article_id, 
+                uai.interaction, 
+                NULL AS engagement_data 
+            FROM 
+                user_article_interactions uai
+            WHERE 
+                uai.interaction = 5
+            """
+        await cur.execute(sql)
+
+        results = await cur.fetchall()
+        return results
 
 
 def get_users_article_interactions(db, query: dict):
@@ -821,7 +902,6 @@ def get_users_article_interactions(db, query: dict):
     users = str(users)
     if users[-2] == ",":
         users = users[:-2] + users[-1:]
-    cursor = db.cursor()
 
     sql = f"""
         SELECT 

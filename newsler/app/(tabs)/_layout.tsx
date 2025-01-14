@@ -55,24 +55,7 @@ const TabsLayout = () => {
           ),
         }}
       />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: "Explore",
-          headerShown: false,
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon
-              icon={
-                <Search
-                  className={`${focused ? `text-secondary` : `text-primary`}`}
-                />
-              }
-              color={color}
-              focused={focused}
-            />
-          ),
-        }}
-      />
+
       <Tabs.Screen
         name="home"
         options={{

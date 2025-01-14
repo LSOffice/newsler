@@ -6,17 +6,20 @@ USER = "kevin_lucy"
 PASSWORD = "island2024"
 mydb = mysql.connect(host=HOST, database=DATABASE, user=USER, password=PASSWORD)
 mycursor = mydb.cursor()
-import uuid
 import random
-from datetime import datetime
+
 # import pandas as pd
 # import google.generativeai as genai
 import time
+import uuid
+from datetime import datetime
+
 from googleapiclient.discovery import build
 
-"""service = build(
-    "customsearch", "v1", developerKey=""
-)"""
+# service = build(
+#     "customsearch", "v1", developerKey=""
+# )
+
 
 # mycursor.execute("""CREATE TABLE assignments (
 #     assignment_id VARCHAR(36) PRIMARY KEY,
@@ -55,31 +58,45 @@ from googleapiclient.discovery import build
 #     )
 # """)
 
+# failed = []
+# length = 0
+# off = True
+# for article in mycursor.fetchall():
 
-"""failed = []
-for article in mycursor.fetchall():
-    if article[8] != None:
-        continue
-    res = (
-        service.cse()
-        .list(
-            q=str(article[2][:30]),
-            cx="a5fbdd3f7d6464c06",
-        )
-        .execute()
-    )
-    
-    try:
-        if "cse_image" in res['items'][0]['pagemap']:
-            image_uri = res['items'][0]['pagemap']['cse_image'][0]['src']
-        else:
-            image_uri = res['items'][0]['pagemap']['metatags'][0]['og:image']
-        mycursor.execute("UPDATE articles SET image_uri = %s WHERE article_id = %s", (image_uri, article[0],))
-        print(article[0])
-        mydb.commit()
-    except KeyError:
-        failed.append(article[0])
-print(failed)"""
+#     sentences = str(article[2]).split(".")
+#     sentence = sentences[0]
+#     if len(sentences[0]) < 100:
+#         sentence = sentences[0] + sentences[1]
+#     length += 1
+#     if article[0] == "af47f119-81fa-456d-9987-efdbc9cc7db7":
+#         off = False
+#     if off:
+#         continue
+#     print(length)
+#     res = (
+#         service.cse()
+#         .list(
+#             q=sentence,
+#             cx="21129a1f9b0b94117",
+#         )
+#         .execute()
+#     )
+
+#     try:
+#         image_uri = res["items"][0]["pagemap"]["metatags"][0]["og:image"]
+#         print(image_uri)
+#         mycursor.execute(
+#             "UPDATE articles SET image_uri = %s WHERE article_id = %s",
+#             (
+#                 image_uri,
+#                 article[0],
+#             ),
+#         )
+#         mydb.commit()
+#     except KeyError:
+#         failed.append(article[0])
+
+# print(failed)
 
 # authors = {}
 # agencies = {}

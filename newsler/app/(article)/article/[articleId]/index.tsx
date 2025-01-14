@@ -10,6 +10,7 @@ import {
   TextInput,
   Pressable,
   ActivityIndicator,
+  Share,
 } from "react-native";
 import { Dialog, CheckBox, ListItem, Avatar } from "@rneui/themed";
 import React, { useEffect, useRef, useState } from "react";
@@ -44,13 +45,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const ArticleDisplay = () => {
   const local = useLocalSearchParams();
   const articleId = local.articleId;
-  const [isModalVisible, setModalVisible] = useState(false);
   const [postSaved, setPostSaved] = useState(false);
   const [contentHeight, setContentHeight] = useState(0);
   const scrollViewRef = useRef(null);
-  const toggleModal = () => {
-    setModalVisible(!isModalVisible);
-  };
   const [newsArticle, setnewsArticle] = useState({});
   const [reactionInfo, setreactionInfo] = useState({});
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
@@ -127,7 +124,6 @@ const ArticleDisplay = () => {
   };
 
   useEffect(() => {
-    console.log(articleId);
     const intervalId = setInterval(() => {
       setTimer((prevTimer) => prevTimer + 1);
     }, 1000);
@@ -272,6 +268,7 @@ const ArticleDisplay = () => {
               "session_token",
               content["session_token"],
             );
+            await AsyncStorage.setItem("email", content["email"]);
             continue;
           }
           const responseJson = await response.json();
@@ -285,7 +282,12 @@ const ArticleDisplay = () => {
           setisLoaded(true);
         }
       } catch (e) {
-        console.log(e);
+        Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: "An error occurred",
+          visibilityTime: 1000,
+        });
       }
     };
     fetchData();
@@ -316,7 +318,15 @@ const ArticleDisplay = () => {
             </TouchableOpacity>
             <View className="ml-auto">
               <View className="flex flex-row gap-1">
-                <TouchableOpacity onPress={toggleModal}>
+                <TouchableOpacity
+                  onPress={async () => {
+                    const result = await Share.share({
+                      message:
+                        "Check out this article on Newsler: " +
+                        newsArticle.title,
+                    });
+                  }}
+                >
                   <LucideSend size={32} className="text-primary" />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={savePost}>
@@ -425,38 +435,6 @@ const ArticleDisplay = () => {
             </View>
           </View>
         </ScrollView>
-
-        <Dialog isVisible={isModalVisible} onBackdropPress={toggleModal}>
-          <View className="flex flex-col w-full">
-            <Text className="text-lg font-bold">Share to</Text>
-            <View className="flex flex-row items-center justify-center mt-2 gap-3">
-              <LucideFacebook className="text-primary" />
-              <LucideInstagram className="text-primary" />
-              <LucideTwitch className="text-primary" />
-              <LucideLinkedin className="text-primary" />
-            </View>
-            <View className="flex flex-col items-center mt-2">
-              <Pressable className="items-center mt-2 flex flex-row border w-full p-2 border-dotted border-primary rounded-2xl">
-                <LucideGraduationCap className="mr-3 text-primary" />
-                <Text className="text-sm flex-shrink">
-                  Add article onto [classroom] stream
-                </Text>
-              </Pressable>
-              <Pressable className="items-center mt-2 flex flex-row border w-full p-2 border-dotted border-primary rounded-2xl">
-                <LucideGraduationCap className="mr-3 text-primary" />
-                <Text className="text-sm flex-shrink">
-                  Add article onto [classroom2] stream
-                </Text>
-              </Pressable>
-              <Pressable className="items-center mt-2 flex flex-row border w-full p-2 border-dotted border-primary rounded-2xl">
-                <LucideCopyPlus className="mr-3 text-primary" />
-                <Text className="text-sm flex-shrink">
-                  Add article onto [classroom] assignments
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </Dialog>
       </SafeAreaView>
     );
   }

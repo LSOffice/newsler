@@ -46,6 +46,7 @@ const Login = () => {
           });
           const content = await response.json();
           await AsyncStorage.setItem("session_token", content["session_token"]);
+          await AsyncStorage.setItem("email", content["email"]);
           router.push("/home");
         } catch (e) {
           setautoSignIn(false);
@@ -102,6 +103,7 @@ const Login = () => {
         "session_token",
         loginContent["session_token"],
       );
+      await AsyncStorage.setItem("email", loginContent["email"]);
       // user change
       await AsyncStorage.setItem("userId", loginContent["user_id"]);
       await AsyncStorage.setItem(
@@ -111,8 +113,12 @@ const Login = () => {
       router.push("/home");
     } catch (e) {
       setisSubmitting(false);
-      console.error(e);
-      alert("An error occurred. Please try again");
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "An error occurred",
+        visibilityTime: 1000,
+      });
     }
   };
 

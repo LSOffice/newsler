@@ -3,8 +3,8 @@ import os
 import mysql.connector as mysql
 from dotenv import load_dotenv
 
-from .controllers import auth, users
 from .controllers import articles_c as articles
+from .controllers import auth, users
 
 load_dotenv()
 
@@ -27,6 +27,7 @@ def articles_get_article_details_and_interactions(query: dict):
         password=os.getenv("DB_PASSWORD"),
     )
     return articles.get_article_details_and_interactions(mydb, query=query)
+
 
 def articles_get_articles_of_topic(query: dict):
     mydb = mysql.connect(

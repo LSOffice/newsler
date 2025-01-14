@@ -1,8 +1,9 @@
-from tracemalloc import start
+import os
 import uuid
 from datetime import datetime
+from tracemalloc import start
+
 import aiomysql
-import os
 import bcrypt
 
 salt = open("config.txt", "r").readlines()[0].replace("salt=", "").encode()
@@ -29,7 +30,6 @@ async def is_session_token_valid(query: dict):
     async with conn.cursor() as cur:
         session_token = query["session_token"]
 
-
         sql = "SELECT user_id, sessionExpiresAt FROM sessions WHERE session_token=%s"
         await cur.execute(sql, (bcrypt.hashpw(session_token.encode(), salt).decode(),))
         results = await cur.fetchall()
@@ -37,7 +37,7 @@ async def is_session_token_valid(query: dict):
             return [
                 True,
                 datetime.fromtimestamp(results[0][1]) > datetime.now(),
-                results[0][0]
+                results[0][0],
             ]
         else:
             return [False]
@@ -116,6 +116,22 @@ def return_user_object_from_user_id(db, query: dict) -> list:
     results = cursor.fetchall()
 
     return results[0]
+
+
+async def get_user_geolocation(query: dict) -> str:
+    if not "user_id" in query:
+        raise AttributeError
+    conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE"))  # type: ignore
+    async with conn.cursor() as cur:
+        await cur.execute(
+            "SELECT * FROM user_recommendation_index WHERE user_id = %s",
+            (query["user_id"],),
+        )
+        result = await cur.fetchall()
+        if len(result) != 1:
+            raise AttributeError
+
+        return result[0][2]
 
 
 def update_user_recommendation_index(db, query: dict):

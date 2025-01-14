@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import images from "../../constants/images";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
+import Toast from "react-native-toast-message";
 
 const Saved = () => {
   const [savedPosts, setSavedPosts] = useState([]);
@@ -56,6 +57,7 @@ const Saved = () => {
               "session_token",
               content["session_token"],
             );
+            await AsyncStorage.setItem("email", content["email"]);
             continue;
           }
           const responseJson = await response.json();
@@ -64,7 +66,12 @@ const Saved = () => {
           setisLoaded(true);
         }
       } catch (e) {
-        console.log(e);
+        Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: "An error occurred",
+          visibilityTime: 1000,
+        });
       }
     };
     fetchData();

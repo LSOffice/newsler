@@ -14,13 +14,18 @@ import images from "../../constants/images";
 import {
   LucideBookOpen,
   LucideCheck,
+  LucideChevronLeft,
   LucidePaperclip,
+  LucidePlus,
   LucideRocket,
   LucideSearch,
   LucideSend,
+  LucideX,
 } from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Dropdown } from "react-native-element-dropdown";
+import Toast from "react-native-toast-message";
+import { router } from "expo-router";
 
 const Education = () => {
   const [joinform, setjoinForm] = useState({
@@ -35,8 +40,171 @@ const Education = () => {
   const [userType, setUserType] = useState("student");
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
   const [isLoading, setisLoading] = useState(true);
+  const [reload, setreload] = useState(false);
+  const [addMoreClassrooms, setaddMoreClassrooms] = useState(false);
+
+  const randomTailwindColour = () => {
+    const colors = [
+      "red",
+      "pink",
+      "purple",
+      "deep-purple",
+      "indigo",
+      "blue",
+      "light-blue",
+      "cyan",
+      "teal",
+      "green",
+      "light-green",
+      "lime",
+      "yellow",
+      "amber",
+      "orange",
+      "deep-orange",
+      "grey",
+    ];
+
+    const randomIndex = Math.floor(Math.random() * colors.length);
+    const randomColor = colors[randomIndex];
+
+    return `bg-${randomColor}-400`;
+  };
+
+  const joinClassroom = async () => {
+    if (joinform.classroom_code == "") {
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Incomplete fields",
+        visibilityTime: 1000,
+      });
+      return;
+    }
+
+    try {
+      Toast.show({
+        type: "info",
+        text1: "Joining classroom...",
+        visibilityTime: 100000,
+      });
+      let reloading = true;
+      while (reloading) {
+        const response = await fetch(apiUrl + "/edu/classroom/join", {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            Authorization:
+              "Bearer " + (await AsyncStorage.getItem("session_token")),
+          },
+          body: JSON.stringify({
+            user_id: await AsyncStorage.getItem("userId"),
+            join_code: joinform.classroom_code,
+          }),
+        });
+        if (response.status === 308) {
+          const newResponse = await fetch(apiUrl + "/auth/refreshsession", {
+            method: "POST",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              refresh_token: await AsyncStorage.getItem("refresh_token"),
+              user_id: await AsyncStorage.getItem("userId"),
+            }),
+          });
+          const content = await newResponse.json();
+          await AsyncStorage.setItem("session_token", content["session_token"]);
+          await AsyncStorage.setItem("email", content["email"]);
+          continue;
+        }
+        const responseJson = await response.json();
+        Toast.show({
+          type: "info",
+          text1: "Joined classroom",
+          visibilityTime: 500,
+        });
+        reloading = false;
+        setreload(true);
+      }
+    } catch (e) {
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Classroom already joined (failed to join classroom)",
+        visibilityTime: 1000,
+      });
+    }
+  };
+
+  const createClassroom = async () => {
+    if (
+      createForm.classroom_name == "" ||
+      createForm.subject_code == "" ||
+      createForm.educational_level == ""
+    ) {
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Incomplete fields",
+        visibilityTime: 1000,
+      });
+      return;
+    }
+
+    try {
+      let reloading = true;
+      while (reloading) {
+        const response = await fetch(apiUrl + "/edu/classroom/create", {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            Authorization:
+              "Bearer " + (await AsyncStorage.getItem("session_token")),
+          },
+          body: JSON.stringify({
+            user_id: await AsyncStorage.getItem("userId"),
+            classroom_name: createForm.classroom_name,
+            educational_level: createForm.educational_level,
+            subject_code: createForm.subject_code,
+          }),
+        });
+        if (response.status === 308) {
+          const newResponse = await fetch(apiUrl + "/auth/refreshsession", {
+            method: "POST",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              refresh_token: await AsyncStorage.getItem("refresh_token"),
+              user_id: await AsyncStorage.getItem("userId"),
+            }),
+          });
+          const content = await newResponse.json();
+          await AsyncStorage.setItem("session_token", content["session_token"]);
+          await AsyncStorage.setItem("email", content["email"]);
+          continue;
+        }
+        const responseJson = await response.json();
+        reloading = false;
+        setreload(true);
+      }
+    } catch (e) {
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        visibilityTime: 1000,
+      });
+    }
+  };
 
   useEffect(() => {
+    if (!reload) {
+      return;
+    }
     const fetchData = async () => {
       try {
         let loading = true;
@@ -71,6 +239,7 @@ const Education = () => {
               "session_token",
               content["session_token"],
             );
+            await AsyncStorage.setItem("email", content["email"]);
             continue;
           }
           loading = false;
@@ -78,11 +247,16 @@ const Education = () => {
           setClassroomList(responseJson["classrooms"]);
           setUserType(responseJson["edu_type"]);
           setisLoading(false);
+          setreload(false);
         }
       } catch {}
     };
 
     fetchData();
+  }, [reload]);
+
+  useEffect(() => {
+    setreload(true);
   }, []);
 
   if (isLoading) {
@@ -106,8 +280,19 @@ const Education = () => {
           <Text className="mt-auto text-primary">EDU</Text>
         </View>
         {/* if no classrooms present in user list and they are a student */}
-        {classroomList.length == 0 && userType == "student" ? (
+        {(classroomList.length == 0 || addMoreClassrooms) &&
+        userType == "student" ? (
           <View className="w-full h-[95%] items-center justify-center flex px-6">
+            {addMoreClassrooms ? (
+              <TouchableOpacity
+                className="absolute top-7 left-3"
+                onPress={() => setaddMoreClassrooms(false)}
+              >
+                <LucideX size={28} className="text-black" />
+              </TouchableOpacity>
+            ) : (
+              <></>
+            )}
             <Text className="text-primary font-bold text-2xl w-full text-left">
               Join a classroom
             </Text>
@@ -123,7 +308,10 @@ const Education = () => {
                 placeholderTextColor={"gray"}
               />
             </View>
-            <TouchableOpacity className="bg-primary mt-3 w-1/2 flex items-center justify-center rounded-2xl py-2">
+            <TouchableOpacity
+              onPress={joinClassroom}
+              className="bg-primary mt-3 w-1/2 flex items-center justify-center rounded-2xl py-2"
+            >
               <Text className="text-white font-semibold text-lg">Join</Text>
             </TouchableOpacity>
             <View className="flex flex-col mt-7">
@@ -134,10 +322,21 @@ const Education = () => {
               </Text>
             </View>
           </View>
-        ) : classroomList.length == 0 && userType == "teacher" ? (
+        ) : (classroomList.length == 0 || addMoreClassrooms) &&
+          userType == "teacher" ? (
           // if no classrooms in user list and type is teacher
 
           <View className="w-full h-[95%] items-center justify-center flex px-6">
+            {addMoreClassrooms ? (
+              <TouchableOpacity
+                className="absolute top-7 left-3"
+                onPress={() => setaddMoreClassrooms(false)}
+              >
+                <LucideX size={28} className="text-black" />
+              </TouchableOpacity>
+            ) : (
+              <></>
+            )}
             <Text className="text-primary font-bold text-2xl w-full text-left">
               Create a classroom
             </Text>
@@ -200,7 +399,10 @@ const Education = () => {
               />
             </View>
 
-            <TouchableOpacity className="bg-primary mt-3 w-1/2 flex items-center justify-center rounded-2xl py-2">
+            <TouchableOpacity
+              onPress={createClassroom}
+              className="bg-primary mt-3 w-1/2 flex items-center justify-center rounded-2xl py-2"
+            >
               <Text className="text-white font-semibold text-lg">Create</Text>
             </TouchableOpacity>
             <View className="flex flex-col mt-7">
@@ -213,94 +415,43 @@ const Education = () => {
           </View>
         ) : (
           <View className="w-full h-[95%] items-center mt-4 flex flex-col">
-            {/* Top display */}
-            <View className="border-y w-full flex flex-col px-5 py-3">
-              <Text className="text-2xl font-bold">
-                Mr Cawson's Chemistry Class
-              </Text>
-              <Text className="text-base font-light">Gareth Cawson</Text>
-              <View className="flex flex-row items-center mt-1">
-                <View className="bg-primary rounded-full p-2 flex items-center justify-center">
-                  <LucidePaperclip size={20} className="text-white" />
-                </View>
-                <Text className="ml-2 font-light">Class code: HGFKAS</Text>
+            <View className="border-y w-full flex flex-row px-5 py-3 items-center">
+              <View className="flex flex-col">
+                <Text className="text-2xl font-bold">Classrooms</Text>
+                <Text className="text-lg font-light">You are a {userType}</Text>
               </View>
+              <TouchableOpacity
+                className="ml-auto"
+                onPress={() => setaddMoreClassrooms(true)}
+              >
+                <LucidePlus className="text-primary" />
+              </TouchableOpacity>
             </View>
 
-            {/* Scrollable classroom timeline */}
             <ScrollView className="mt-5 px-4 w-full">
-              {/* shared an article object */}
-              <View className="border w-full p-2 flex flex-col mb-5 rounded-2xl">
-                <View className="flex flex-row items-center">
-                  <Image
-                    source={{
-                      uri: "https://island.edu.hk/wp-content/uploads/2023/05/IMG_7575-1-2-1-1.jpg",
-                    }}
-                    className="w-12 h-12 rounded-full"
-                  />
-                  <View className="flex flex-col ml-3">
-                    <Text className="font-medium text-base">Gareth Cawson</Text>
-                    <Text className="text-xs font-light">Today at 09:55</Text>
-                  </View>
-                </View>
-                <Text className="my-3">Shared an article:</Text>
-                <TouchableOpacity className="border border-dashed w-full p-2 rounded-2xl flex flex-row">
-                  <View className="bg-primary rounded-full p-2 flex items-center justify-center mr-3">
-                    <LucideRocket
-                      fill="white"
-                      size={20}
-                      className="text-white"
-                    />
-                  </View>
-                  <View className="flex flex-col">
-                    <Text className="text-sm font-bold flex-shrink w-1/2">
-                      The chemistry involved in the APEP NASA Mission: 10
-                      Mindblowing Facts
-                    </Text>
-                    <Text>5-minute read</Text>
-                  </View>
+              {classroomList.map((_, index) => (
+                <TouchableOpacity
+                  key={index}
+                  className="w-full flex flex-col justify-center bg-secondary rounded-2xl p-3"
+                  onPress={() =>
+                    router.push(
+                      "/classroom?classroom_id=" +
+                        classroomList[index]["classroom_id"],
+                    )
+                  }
+                >
+                  <Text className="text-lg font-semibold">
+                    {classroomList[index]["name"]}
+                  </Text>
+                  <Text className="font-light">
+                    {classroomList[index]["subject_code"]} (
+                    {classroomList[index]["education_level"]})
+                  </Text>
+                  <Text className="pt-3">
+                    Teacher: {classroomList[index]["teacher"]}
+                  </Text>
                 </TouchableOpacity>
-              </View>
-
-              {/* set an assignment object */}
-              <View className="border w-full p-2 flex flex-col mb-5 rounded-2xl">
-                <View className="flex flex-row items-center">
-                  <Image
-                    source={{
-                      uri: "https://island.edu.hk/wp-content/uploads/2023/05/IMG_7575-1-2-1-1.jpg",
-                    }}
-                    className="w-12 h-12 rounded-full"
-                  />
-                  <View className="flex flex-col ml-3">
-                    <Text className="font-medium text-base">Gareth Cawson</Text>
-                    <Text className="text-xs font-light">
-                      04/06 10:30 (Edited)
-                    </Text>
-                  </View>
-                </View>
-                <Text className="mt-3 ">Set an assignment:</Text>
-                <View className="flex flex-row items-center">
-                  <View className="bg-primary rounded-full p-2 flex items-center justify-center mr-2">
-                    <LucideBookOpen
-                      fill="white"
-                      size={14}
-                      className="text-white"
-                    />
-                  </View>
-                  <Text>Read 5 articles</Text>
-                </View>
-                <View className="flex flex-row mt-3">
-                  <TouchableOpacity className="border py-2 px-3 rounded-2xl">
-                    <Text className="text-primary font-bold">View</Text>
-                  </TouchableOpacity>
-                  <View className="flex flex-row ml-3 items-center">
-                    <View className="bg-green-400 p-0.5 rounded-full">
-                      <LucideCheck size={20} className="text-black" />
-                    </View>
-                    <Text className="ml-2">This task is graded</Text>
-                  </View>
-                </View>
-              </View>
+              ))}
             </ScrollView>
           </View>
         )}

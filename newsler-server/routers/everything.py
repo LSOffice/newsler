@@ -1,9 +1,10 @@
-from datetime import datetime, timezone, timedelta
-from uuid import uuid4
-from fastapi import APIRouter, Depends, HTTPException, Request
-import bcrypt
-from pydantic import BaseModel
 import asyncio
+from datetime import datetime, timedelta, timezone
+from uuid import uuid4
+
+import bcrypt
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
 
 router = APIRouter(
     prefix="/api",
@@ -23,7 +24,6 @@ class Credentials(BaseModel):
 pw = b"Luciano#1977"
 salt = open("config.txt", "r").readlines()[0].replace("salt=", "").encode()
 hashed = bcrypt.hashpw(pw, salt)
-print(hashed)
 
 sample_users_db = {
     "56754323456": {
@@ -78,12 +78,6 @@ async def is_logged_in(req: Request) -> list:
             return [True, True]
     # Has account, invalid credentials
     return [True, False]
-
-
-@router.post("/")
-async def get():
-    b = await recent_x_articles_interacted_with_ranked("56754323456", 10)
-    print(b)
 
 
 @router.get("/{item_id}")

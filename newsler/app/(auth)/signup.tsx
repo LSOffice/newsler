@@ -98,7 +98,6 @@ const SignUp = () => {
         text1: "You're all signed up",
         text2: "Welcome to Newsler!",
       });
-      console.log(loginContent);
 
       await AsyncStorage.setItem(
         "session_token",
@@ -109,9 +108,15 @@ const SignUp = () => {
         "refresh_token",
         await loginContent["refresh_token"],
       );
+      await AsyncStorage.setItem("email", loginContent["email"]);
       router.push("/home");
     } catch (e) {
-      console.error(e);
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "An error occurred",
+        visibilityTime: 1000,
+      });
     }
   };
 

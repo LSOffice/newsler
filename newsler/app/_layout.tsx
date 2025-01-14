@@ -21,6 +21,7 @@ const RootLayout = () => {
           name="(tabs)"
           options={{ headerShown: false, gestureEnabled: false }}
         />
+        <Stack.Screen name="(education)" options={{ headerShown: false }} />
 
         <Stack.Screen
           name="(article)/article/index"

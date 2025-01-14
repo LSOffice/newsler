@@ -31,6 +31,8 @@ import { Dialog } from "@rneui/themed";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
 
+import flags from "./flags.json";
+
 const Home = () => {
   const [isRefresh, setisRefresh] = useState(false);
   const [dataSource, setDataSource] = useState([{}]);
@@ -42,9 +44,20 @@ const Home = () => {
   const [preventOnce, setPreventOnce] = useState(false);
   const [navigationTabs, setNavigationTabs] = useState([]);
   const [isLoading, setisLoading] = useState(false);
-  const [userId, setuserId] = useState("");
+  const [email, setEmail] = useState("");
 
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+
+  const getCountryEmoji = ({ code }: { code: string | undefined }) => {
+    if (code === undefined || flags[code] == "") {
+      return;
+    }
+
+    try {
+      const flag = flags[code]["emoji"];
+      return flag;
+    } catch {}
+  };
 
   const getData = () => {
     if (!isRefresh) {
@@ -54,8 +67,13 @@ const Home = () => {
 
   useEffect(() => {
     getData();
+    Toast.show({
+      type: "info",
+      text1: "Loaded",
+      visibilityTime: 500,
+    });
     const fetchData = async () => {
-      setuserId(await AsyncStorage.getItem("userId"));
+      setEmail(await AsyncStorage.getItem("email"));
       try {
         let loading = true;
         while (loading) {
@@ -90,6 +108,7 @@ const Home = () => {
               "session_token",
               content["session_token"],
             );
+            await AsyncStorage.setItem("email", content["email"]);
             continue;
           }
           loading = false;
@@ -106,7 +125,12 @@ const Home = () => {
           setisLoading(false);
         }
       } catch (e) {
-        console.error(e);
+        Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: "An error occurred",
+          visibilityTime: 1000,
+        });
       }
     };
 
@@ -116,14 +140,11 @@ const Home = () => {
   useEffect(() => {
     const fetchData = async () => {
       if (isRefresh) {
+        let tab = "For you";
+        if (navigationTabs[selectedIndex]) {
+          tab = navigationTabs[selectedIndex]["name"];
+        }
         setDataSource([]);
-        Toast.show({
-          type: "info",
-          visibilityTime: 5000,
-          position: "bottom",
-          text1: "Your internet connection is slow",
-          text2: "Loading will take a while",
-        });
         try {
           let loading = true;
           while (loading) {
@@ -137,7 +158,7 @@ const Home = () => {
               },
               body: JSON.stringify({
                 user_id: await AsyncStorage.getItem("userId"),
-                topic: "Trending",
+                topic: tab,
                 page: 1,
               }),
             });
@@ -158,6 +179,7 @@ const Home = () => {
                 "session_token",
                 content["session_token"],
               );
+              await AsyncStorage.setItem("email", content["email"]);
               continue;
             }
             loading = false;
@@ -168,7 +190,12 @@ const Home = () => {
             setloadingNewPage(false);
           }
         } catch (e) {
-          console.error(e);
+          Toast.show({
+            type: "error",
+            text1: "Error",
+            text2: "An error occurred",
+            visibilityTime: 1000,
+          });
         }
       }
     };
@@ -199,6 +226,7 @@ const Home = () => {
       verified: boolean;
       article_id: string;
       live: boolean;
+      country: string;
     };
   }) => {
     return item.live ? (
@@ -206,6 +234,7 @@ const Home = () => {
         onPress={() => getItem(item)}
         className="border-[0.5px] rounded-2xl border-tertiary flex flex-col h-56"
         key={item.article_id}
+        activeOpacity={1}
       >
         <View className="h-full flex flex-col">
           {item.image_uri ? (
@@ -240,6 +269,7 @@ const Home = () => {
         onPress={() => getItem(item)}
         className="border-[0.5px] rounded-2xl border-tertiary flex flex-col h-48"
         key={item.article_id}
+        activeOpacity={1}
       >
         <View className="h-3/4">
           {item.image_uri ? (
@@ -260,7 +290,8 @@ const Home = () => {
           </Text>
           <View className="flex flex-row gap-1 items-center">
             <Text numberOfLines={1} className="text-xs font-light w-11/12">
-              By {item.author}, {item.company}
+              By {item.author}, {item.company}{" "}
+              {getCountryEmoji({ code: item.country })}
             </Text>
             {item.verified ? (
               <UserCheck size={14} className="text-primary" />
@@ -316,7 +347,7 @@ const Home = () => {
               },
               body: JSON.stringify({
                 user_id: await AsyncStorage.getItem("userId"),
-                topic: "Trending",
+                topic: "For you",
                 page: 2,
               }),
             });
@@ -337,6 +368,7 @@ const Home = () => {
                 "session_token",
                 content["session_token"],
               );
+              await AsyncStorage.setItem("email", content["email"]);
               continue;
             }
             const responseJson = await response.json();
@@ -344,7 +376,12 @@ const Home = () => {
             reloading = false;
           }
         } catch (e) {
-          console.error(e);
+          Toast.show({
+            type: "error",
+            text1: "Error",
+            text2: "An error occurred",
+            visibilityTime: 1000,
+          });
         }
       } else if (
         e.nativeEvent.contentOffset.y >= 1700 + offset * 1000 &&
@@ -366,7 +403,7 @@ const Home = () => {
               },
               body: JSON.stringify({
                 user_id: await AsyncStorage.getItem("userId"),
-                topic: "Trending",
+                topic: "For you",
                 page: offsetValue + 2,
               }),
             });
@@ -387,6 +424,7 @@ const Home = () => {
                 "session_token",
                 content["session_token"],
               );
+              await AsyncStorage.setItem("email", content["email"]);
               continue;
             }
             const responseJson = await response.json();
@@ -394,18 +432,18 @@ const Home = () => {
             reloading = false;
           }
         } catch (e) {
-          console.error(e);
+          Toast.show({
+            type: "error",
+            text1: "Error",
+            text2: "An error occurred",
+            visibilityTime: 1000,
+          });
         }
       }
     } else {
       // going up
-      if (yOffset < -10) {
-        if (preventOnce) {
-          // first scroll up doesn't immediately reload
-          setTimeout(() => setPreventOnce(false), 500);
-        } else {
-          setisRefresh(true);
-        }
+      if (yOffset < -20) {
+        setisRefresh(true);
       }
     }
 
@@ -427,7 +465,7 @@ const Home = () => {
             >
               <Image
                 source={{
-                  uri: "https://t4.ftcdn.net/jpg/06/08/55/73/360_F_608557356_ELcD2pwQO9pduTRL30umabzgJoQn5fnd.jpg",
+                  uri: "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png",
                 }}
                 className="w-10 h-10 rounded-full"
               />
@@ -485,11 +523,11 @@ const Home = () => {
           <View className="flex flex-row items-center">
             <Image
               source={{
-                uri: "https://t4.ftcdn.net/jpg/06/08/55/73/360_F_608557356_ELcD2pwQO9pduTRL30umabzgJoQn5fnd.jpg",
+                uri: "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png",
               }}
               className="w-8 h-8 rounded-full"
             />
-            <Text className="ml-3 text-base font-semibold">{userId}</Text>
+            <Text className="ml-3 w-1/2 text-base font-semibold">{email}</Text>
             <View className="ml-auto flex flex-row">
               <Image
                 source={images.logo}

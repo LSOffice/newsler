@@ -1,19 +1,20 @@
 import asyncio
 import os
 import random
+import threading
 from code import interact
 from datetime import date, datetime
-import threading
 
 import bcrypt
 import google.generativeai as genai
 import pandas as pd
 import pycountry
+import reverse_geocode
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from ..db.controllers import auth, users, articles_c
+from ..db.controllers import articles_c, auth, users
 from ..db.init import (
     articles_get_article_details_and_interactions,
     articles_get_article_from_article_id,
@@ -40,7 +41,7 @@ salt = open("config.txt", "r").readlines()[0].replace("salt=", "").encode()
 
 class Feed(BaseModel):
     user_id: str | None = None
-    topic: str | None = "Trending"
+    topic: str | None = "For you"
     page: int | None = 1
 
 
@@ -72,10 +73,23 @@ class Headers(BaseModel):
     user_id: str | None = None
 
 
+articles = []
+
+
+async def get_articles():
+    global articles
+    print("Getting articles")
+    articles = await articles_c.get_all_articles()
+    print("articles retrieved")
+
+
+asyncio.run(get_articles())
+
 router = APIRouter(prefix="/articles", tags=["articles"])
 feeds = {}
 valid_token_cache = {}
 # "token": {expiresAt}
+
 
 async def is_logged_in(req: Request) -> bool:
     try:
@@ -106,7 +120,7 @@ async def recent_x_user_article_interactions_ranked(user_id: str, x: int) -> lis
         {"x": x, "user_id": user_id}
     )
     articles = {}
-    for interaction in interactions: # type: ignore
+    for interaction in interactions:  # type: ignore
         recency_factor = 14  # number of days considered recent
         total_weighting = 0
 
@@ -161,7 +175,7 @@ async def user_article_ratings(users: list) -> dict:
     for user in users:
         articles = {}
 
-        for interaction in interactions: # type: ignore
+        for interaction in interactions:  # type: ignore
             if interaction[0] != user:
                 continue
             recency_factor = 14  # number of days considered recent
@@ -202,9 +216,67 @@ async def user_article_ratings(users: list) -> dict:
     return user_dict
 
 
+async def global_article_ratings() -> dict:
+    reaction_weighting = 0.7
+    view_weighting = 0.1
+    full_scroll_weighting = 0.5
+    comment_weighting = 0.7
+    saved_weighting = 0.97
+
+    interactions = await articles_c.get_global_users_article_interactions()
+    users = []
+    for interaction in interactions:
+        if interaction[0] not in users:
+            users.append(interaction[0])
+
+    user_dict = {}
+    for user in users:
+        articles = {}
+
+        for interaction in interactions:  # type: ignore
+            if interaction[0] != user:
+                continue
+            total_weighting = 0
+
+            article_id = interaction[3]
+            if article_id not in articles:
+                articles[article_id] = {"rating": 0, "viewed": False}
+
+            if interaction[4] == 1:
+                # View
+                total_weighting += view_weighting  # + int(interaction[5] * 0.001)
+                if int(interaction[5]) > 10:
+                    articles[article_id]["viewed"] = True
+            elif interaction[4] == 2:
+                # full scroll, therefore scroll depth is 0.0-1.0
+                total_weighting += full_scroll_weighting * float(interaction[5])
+
+            elif interaction[4] == 3:
+                # Comment
+                total_weighting += comment_weighting
+                total_weighting += 0.001 * len(interaction[5].split())
+            elif interaction[4] == 4:
+                # Reaction (emoji)
+                if float(interaction[5]) > 0.5:
+                    total_weighting += reaction_weighting
+                elif float(interaction[5]) == 0.5:
+                    total_weighting += reaction_weighting / 1.5
+                else:
+                    total_weighting += reaction_weighting / 2
+            elif interaction[4] == 5:
+                # Saved article
+                total_weighting += saved_weighting
+
+            if abs(datetime.now().timestamp() - interaction[2]) < 86400:
+                articles[article_id]["rating"] += total_weighting
+        user_dict[user] = articles
+
+    return user_dict
+
+
 @router.post("/feed")
 async def feed(body: Feed, auth_headers: bool = Depends(is_logged_in)):
-
+    global articles
     user_id = body.user_id
     topic = body.topic
     page = body.page
@@ -214,14 +286,83 @@ async def feed(body: Feed, auth_headers: bool = Depends(is_logged_in)):
 
     if user_id == None:
         raise HTTPException(status_code=400, detail="Invalid credentials")
-    starttime = datetime.now()
+    requester_id = user_id
+    if str(user_id) not in feeds:
+        feeds[str(user_id)] = []
 
     # through genre find list of articles, then find people with similar tastes
     # preload 20 posts, then as they reach 15 load 10
-    if topic == "Trending":
-        # loop = asyncio.get_running_loop()
-        # thread = threading.Thread(target=loop.run_until_complete, args=(worker(query),))
+    if topic == "For you":
+        uar = await global_article_ratings()
+        rows = []
+        for user_id, ratings in uar.items():
+            for article_id, rating in ratings.items():
+                ratingd = rating["rating"]
 
+                if not (rating["viewed"]):
+                    rows.append(
+                        {
+                            "user_id": user_id,
+                            "article_id": article_id,
+                            "rating": ratingd,
+                        }
+                    )
+
+        df = pd.DataFrame(rows)
+        article_ratings = df.groupby("article_id")["rating"].mean()
+        article_ids = article_ratings.sort_values(ascending=False)
+
+        article_id_to_article = {article["article_id"]: article for article in articles}
+
+        if page == 1:
+            articles_a = article_ids.iloc[0:20]
+        else:
+            articles_a = article_ids.iloc[20 + int(page - 2) * 30 : 20 + int(page - 2) * 30 + 30]  # type: ignore
+
+        article_id_list = []
+        filtered_articles = articles.copy()
+        for article_id in articles_a.index:
+            if article_id not in feeds[str(requester_id)]:
+                article_id_list.append(article_id)
+
+        if page == 1:
+            if len(article_id_list) < 20:
+                random.shuffle(filtered_articles)
+                for i in range(20 - len(article_id_list)):
+                    locked = True
+                    while locked:
+                        if filtered_articles[0]["article_id"] not in article_id_list:
+                            article_id_list.append(filtered_articles[0]["article_id"])
+                            locked = False
+                        else:
+                            filtered_articles.pop(0)
+        else:
+            if len(article_id_list) < 30:
+                random.shuffle(filtered_articles)
+                for i in range(30 - len(article_id_list)):
+                    locked = True
+                    while locked:
+                        if filtered_articles[0]["article_id"] not in article_id_list:
+                            article_id_list.append(filtered_articles[0]["article_id"])
+                            locked = False
+                        else:
+                            filtered_articles.pop(0)
+        article_list = []
+
+        for article_id in article_id_list:
+            article_list.append(article_id_to_article[article_id])
+
+        feeds[str(requester_id)].extend(article_id_list)
+        return article_list
+
+    elif pycountry.countries.get(name=topic):
+        # geolocation rating ONLY in rec_criteria and articles tagged with country
+        # highest rating users x the user article ratings add together to form total rating
+        #  average the total rating and highest rating is top of feed, then scrolls down and 20-10-10-10...
+        country_code = pycountry.countries.get(name=topic).alpha_2
+        article_list = [
+            article for article in articles if article["country"] == country_code
+        ]
         recommendation_indexes = await auth.get_user_recommendation_index(
             {"user_id": user_id}
         )
@@ -252,47 +393,56 @@ async def feed(body: Feed, auth_headers: bool = Depends(is_logged_in)):
         try:
             uar = await user_article_ratings([user[0] for user in us])
         except IndexError:
-            articles = await articles_c.get_all_articles()
-            random.shuffle(articles)
+            random.shuffle(article_list)
+            article_id_list = []
 
             if page == 1:
-                return articles[0:20]
+                articles_result = article_list[0:20]
             else:
-                return articles[20 + int(page - 2) * 30 : 20 + int(page - 2) * 30 + 30]  # type: ignore
+                articles_result = article_list[20 + int(page - 2) * 30 : 20 + int(page - 2) * 30 + 30]  # type: ignore
 
-        if str(user_id) not in feeds:
-            feeds[str(user_id)] = []
+            for article_id in articles_result:
+                article_id_list.append(article_id)
+            feeds[str(requester_id)].extend(article_id_list)
+            return articles_result
 
-        requester_id = user_id
         rows = []
         for user_id, ratings in uar.items():
             for article_id, rating in ratings.items():
                 ratingd = rating["rating"]
-                if rating["viewed"]:
-                    ratingd *= 0.10
+
                 if article_id in feeds[str(requester_id)]:
                     ratingd *= 0.29
-                rows.append(
-                    {"user_id": user_id, "article_id": article_id, "rating": ratingd}
-                )
+
+                if not rating["viewed"]:
+                    rows.append(
+                        {
+                            "user_id": user_id,
+                            "article_id": article_id,
+                            "rating": ratingd,
+                        }
+                    )
+
+        filtered_articles = article_list.copy()
+        article_id_to_article = {
+            article_list["article_id"]: article for article in article_list
+        }
+
+        for row in rows:
+            try:
+                filtered_articles.remove(article_id_to_article[row["article_id"]])
+            except:
+                pass
+        for article_id in article_id_to_article:
+            if article_id in feeds[str(requester_id)]:
+                try:
+                    filtered_articles.remove(article_id_to_article[article_id])
+                except:
+                    pass
 
         df = pd.DataFrame(rows)
         article_ratings = df.groupby("article_id")["rating"].mean()
         article_ids = article_ratings.sort_values(ascending=False)
-        articles = await articles_c.get_all_articles()
-        filtered_articles = articles.copy()
-        article_id_to_article = {article["article_id"]: article for article in articles}
-
-        for row in article_ids.index:
-            for article in articles:
-                if (
-                    article["article_id"] == row
-                    or article["article_id"] in feeds[str(requester_id)]
-                ):
-                    try:
-                        filtered_articles.remove(article)
-                    except:
-                        pass
 
         if page == 1:
             articles_a = article_ids.iloc[0:20]
@@ -314,40 +464,156 @@ async def feed(body: Feed, auth_headers: bool = Depends(is_logged_in)):
                 for i in range(20 - len(article_id_list)):
                     locked = True
                     while locked:
-                        if articles[0]["article_id"] not in article_id_list:
-                            article_id_list.append(articles[0]["article_id"])
-                            articles.pop(0)
+                        if filtered_articles[0]["article_id"] not in article_id_list:
+                            article_id_list.append(filtered_articles[0]["article_id"])
                             locked = False
+                        else:
+                            filtered_articles.pop(0)
         else:
             if len(article_id_list) < 30:
                 random.shuffle(filtered_articles)
                 for i in range(30 - len(article_id_list)):
                     locked = True
                     while locked:
-                        if articles[0]["article_id"] not in article_id_list:
-                            article_id_list.append(articles[0]["article_id"])
-                            articles.pop(0)
+                        if filtered_articles[0]["article_id"] not in article_id_list:
+                            article_id_list.append(filtered_articles[0]["article_id"])
                             locked = False
+                        else:
+                            filtered_articles.pop(0)
         article_list = []
 
         for article_id in article_id_list:
             article_list.append(article_id_to_article[article_id])
 
         feeds[str(requester_id)].extend(article_id_list)
-        
+
         return article_list
 
-    elif pycountry.countries.get(name=topic):
+    else:
+        article_list = [article for article in articles if article["topic"] == topic]
+        recommendation_indexes = await auth.get_user_recommendation_index(
+            {"user_id": user_id}
+        )
+        # query parameters:
+        # ignore device_type for now
 
-        # geolocation rating ONLY in rec_criteria and articles tagged with country
+        location = (
+            float(recommendation_indexes[2][: recommendation_indexes[2].index(", ")]),
+            float(
+                recommendation_indexes[2][(recommendation_indexes[2].index(", ") + 2) :]
+            ),
+        )
+        # if latitude and longitude +- 15
+
+        topical_interests = [i.strip() for i in recommendation_indexes[3].split(",")]
+        # shares at least 1 item on topical_interests
+        if topical_interests == []:
+            pass
+        age = recommendation_indexes[4]
+        # +- 8 years
+        gender = recommendation_indexes[5]
+        # same gender but low weighting
+        # ignore preferred_format for now
+        us = await users.get_users_based_on_rec_criteria(
+            {"user_id": user_id, "age": age, "gender": gender, "geolocation": location}
+        )
+
+        try:
+            uar = await user_article_ratings([user[0] for user in us])
+        except IndexError:
+            random.shuffle(article_list)
+            article_id_list = []
+
+            if page == 1:
+                articles_result = article_list[0:20]
+            else:
+                articles_result = article_list[20 + int(page - 2) * 30 : 20 + int(page - 2) * 30 + 30]  # type: ignore
+
+            for article_id in articles_result:
+                article_id_list.append(article_id)
+            feeds[str(requester_id)].extend(article_id_list)
+            return articles_result
+
+        rows = []
+        for user_id, ratings in uar.items():
+            for article_id, rating in ratings.items():
+                ratingd = rating["rating"]
+
+                if article_id in feeds[str(requester_id)]:
+                    ratingd *= 0.29
+
+                if not rating["viewed"]:
+                    rows.append(
+                        {
+                            "user_id": user_id,
+                            "article_id": article_id,
+                            "rating": ratingd,
+                        }
+                    )
+
+        filtered_articles = article_list.copy()
+        article_id_to_article = {
+            article_list["article_id"]: article for article in article_list
+        }
+
+        for row in rows:
+            try:
+                filtered_articles.remove(article_id_to_article[row["article_id"]])
+            except:
+                pass
+        for article_id in article_id_to_article:
+            if article_id in feeds[str(requester_id)]:
+                try:
+                    filtered_articles.remove(article_id_to_article[article_id])
+                except:
+                    pass
+
+        df = pd.DataFrame(rows)
+        article_ratings = df.groupby("article_id")["rating"].mean()
+        article_ids = article_ratings.sort_values(ascending=False)
+
+        if page == 1:
+            articles_a = article_ids.iloc[0:20]
+        else:
+            articles_a = article_ids.iloc[20 + int(page - 2) * 30 : 20 + int(page - 2) * 30 + 30]  # type: ignore
+        # past 2 days trending articles
+
         # highest rating users x the user article ratings add together to form total rating
         #  average the total rating and highest rating is top of feed, then scrolls down and 20-10-10-10...
-        pass
 
-    else:
-        article_list = articles_get_articles_of_topic({"topic": topic})
-        topics_of_interest = []
+        article_id_list = []
 
+        for article_id in articles_a.index:
+            article_id_list.append(article_id)
+
+        if page == 1:
+            if len(article_id_list) < 20:
+                random.shuffle(filtered_articles)
+                for i in range(20 - len(article_id_list)):
+                    locked = True
+                    while locked:
+                        if filtered_articles[0]["article_id"] not in article_id_list:
+                            article_id_list.append(filtered_articles[0]["article_id"])
+                            locked = False
+                        else:
+                            filtered_articles.pop(0)
+        else:
+            if len(article_id_list) < 30:
+                random.shuffle(filtered_articles)
+                for i in range(30 - len(article_id_list)):
+                    locked = True
+                    while locked:
+                        if filtered_articles[0]["article_id"] not in article_id_list:
+                            article_id_list.append(filtered_articles[0]["article_id"])
+                            locked = False
+                        else:
+                            filtered_articles.pop(0)
+        article_list = []
+
+        for article_id in article_id_list:
+            article_list.append(article_id_to_article[article_id])
+
+        feeds[str(requester_id)].extend(article_id_list)
         return article_list
 
 
@@ -480,9 +746,16 @@ async def headers(body: Headers, auth_headers: bool = Depends(is_logged_in)):
             if header in starter_topics:
                 starter_topics.remove(header)
         headers += starter_topics
-    country_code = auth_return_user_object_from_user_id({"user_id": user_id})[5]
+    geolocation = await auth.get_user_geolocation({"user_id": user_id})
+    coordinates = (
+        (
+            float(geolocation[: geolocation.find(",")]),
+            float(geolocation[2 + geolocation.find(",") :]),
+        ),
+    )
+    country_code = reverse_geocode.search(coordinates)[0]["country_code"]
 
-    headers = [pycountry.countries.get(alpha_2=country_code).name, "Trending"] + headers
+    headers = [pycountry.countries.get(alpha_2=country_code).name, "For you"] + headers
     asyncio.create_task(
         articles_user_set_age_and_gender({"headers": headers, "user_id": user_id})
     )
