@@ -504,7 +504,7 @@ async def feed(body: Feed, auth_headers: bool = Depends(is_logged_in)):
 
         filtered_articles = article_list.copy()
         article_id_to_article = {
-            article_list["article_id"]: article for article in article_list
+            article["article_id"]: article for article in article_list
         }
 
         for row in rows:
@@ -562,7 +562,10 @@ async def feed(body: Feed, auth_headers: bool = Depends(is_logged_in)):
         article_list = []
 
         for article_id in article_id_list:
-            article_list.append(article_id_to_article[article_id])
+            try:
+                article_list.append(article_id_to_article[article_id])
+            except KeyError:
+                pass
 
         feeds[str(requester_id)].extend(article_id_list)
 
@@ -631,8 +634,9 @@ async def feed(body: Feed, auth_headers: bool = Depends(is_logged_in)):
                     )
 
         filtered_articles = article_list.copy()
+
         article_id_to_article = {
-            article_list["article_id"]: article for article in article_list
+            article["article_id"]: article for article in article_list
         }
 
         for row in rows:
@@ -688,9 +692,11 @@ async def feed(body: Feed, auth_headers: bool = Depends(is_logged_in)):
                         else:
                             filtered_articles.pop(0)
         article_list = []
-
         for article_id in article_id_list:
-            article_list.append(article_id_to_article[article_id])
+            try:
+                article_list.append(article_id_to_article[article_id])
+            except KeyError:
+                pass
 
         feeds[str(requester_id)].extend(article_id_list)
         return article_list
