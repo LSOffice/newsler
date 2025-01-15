@@ -1,14 +1,15 @@
+import asyncio
+import os
 from typing import Union
+
+from fastapi import FastAPI
 from fastapi.concurrency import asynccontextmanager
 from pydantic import BaseModel
-from fastapi import FastAPI
-from .routers import everything, articles, auth, edu
-import os
-import asyncio
+
 from .db import init
+from .routers import articles, auth, edu
 
 app = FastAPI()
-app.include_router(everything.router)
 app.include_router(articles.router)
 app.include_router(auth.router)
 app.include_router(edu.router)

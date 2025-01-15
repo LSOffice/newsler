@@ -76,6 +76,85 @@ class Headers(BaseModel):
 articles = []
 
 
+class Queue:
+    def __init__(self, length):
+        self.obj = []
+        self.length = length
+
+    def enqueue(self, item):
+        if len(self.obj) == self.length:
+            raise IndexError("Queue full")
+        self.obj.append(item)
+
+    def dequeue(self):
+        if len(self.obj) == 0:
+            raise IndexError("Queue empty")
+        return self.obj.pop(0)
+
+    def front(self):
+        if len(self.obj) == 0:
+            raise IndexError("Queue empty")
+        return self.obj[0]
+
+    def rear(self):
+        if len(self.obj) == 0:
+            raise IndexError("Queue empty")
+        return self.obj[-1]
+
+    def isEmpty(self):
+        return len(self.obj) == 0
+
+    def isFull(self):
+        return len(self.obj) == self.length
+
+    def size(self):
+        return len(self.obj)
+
+    def getObject(self):
+        return self.obj
+
+
+class Stack:
+    def __init__(self, length):
+        self.obj = []
+        self.length = length
+
+    def push(self, item):
+        if len(self.obj) == self.length:
+            raise IndexError("Stack full")
+        self.obj.append(item)
+
+    def pop(self):
+        if len(self.obj) == 0:
+            raise IndexError("Stack empty")
+        return self.obj.pop()
+
+    def top(self):
+        if len(self.obj) == 0:
+            raise IndexError("Stack empty")
+        return self.obj[-1]
+
+    def isEmpty(self):
+        return len(self.obj) == 0
+
+    def isFull(self):
+        return len(self.obj) == self.length
+
+    def size(self):
+        return len(self.obj)
+
+    def getObject(self):
+        return self.obj
+
+    def shuffle(self):
+        "Fisher-Yates shuffle Algorithm"
+        for i in range(len(self.obj) - 1, 0, -1):
+
+            j = random.randint(0, i)
+
+            self.obj[i], self.obj[j] = self.obj[j], self.obj[i]
+
+
 async def get_articles():
     global articles
     print("Getting articles")
@@ -706,7 +785,15 @@ async def saved(body: Headers, auth_headers: bool = Depends(is_logged_in)):
     if not auth_headers:
         raise HTTPException(status_code=401, detail="Unauthorised")
 
-    return articles_get_saved_articles({"user_id": user_id})
+    result = articles_get_saved_articles({"user_id": user_id})
+    # Sorting the saved articles randomly
+
+    stack = Stack(len(result))
+    for _ in result:
+        stack.push(_)
+
+    stack.shuffle()
+    return stack.getObject()
 
 
 @router.post("/headers")
@@ -724,7 +811,10 @@ async def headers(body: Headers, auth_headers: bool = Depends(is_logged_in)):
     )
 
     topics_of_interest = {}
-    starter_topics = ["Politics", "Business", "Health", "Technology", "Entertainment"]
+    st = ["Politics", "Business", "Health", "Technology", "Entertainment"]
+    starter_topics = Queue(5)
+    for _ in st:
+        starter_topics.enqueue(_)
 
     # Condenses into dictionary with {article_id: genre}
     articles = {article[0]: article[5] for article in articles_get_recent_articles()}
@@ -742,10 +832,10 @@ async def headers(body: Headers, auth_headers: bool = Depends(is_logged_in)):
 
     headers = list(headers_in_order.keys())[:6]
     if len(headers) != 6:
-        for header in headers:
-            if header in starter_topics:
-                starter_topics.remove(header)
-        headers += starter_topics
+        while len(headers) < 6 and not starter_topics.isEmpty():
+            header = starter_topics.dequeue()
+            if header not in headers:
+                headers.append(header)
     geolocation = await auth.get_user_geolocation({"user_id": user_id})
     coordinates = (
         (

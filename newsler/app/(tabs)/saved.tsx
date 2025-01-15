@@ -11,7 +11,7 @@ import React, { useEffect, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import images from "../../constants/images";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import Toast from "react-native-toast-message";
 
 const Saved = () => {
@@ -20,11 +20,21 @@ const Saved = () => {
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
   const [savedArticles, setsavedArticles] = useState(false);
 
+  useFocusEffect(
+    React.useCallback(() => {
+      setisLoaded(false);
+    }, []),
+  );
+
   useEffect(() => {
+    setisLoaded(false);
+  }, []);
+
+  useEffect(() => {
+    if (isLoaded) {
+      return;
+    }
     const fetchData = async () => {
-      if (isLoaded) {
-        return;
-      }
       try {
         let reloading = true;
         while (reloading) {
@@ -75,7 +85,7 @@ const Saved = () => {
       }
     };
     fetchData();
-  }, []);
+  }, [isLoaded]);
 
   if (!isLoaded) {
     return (
