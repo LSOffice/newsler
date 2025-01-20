@@ -116,7 +116,9 @@ async def join_classroom(
     if (not auth_headers[0]) and (user_id == auth_headers[1]):
         raise HTTPException(status_code=401, detail="Unauthorised")
 
-    success = await user_join_classroom({"user_id": user_id, "join_code": join_code})
+    success = await user_join_classroom(
+        {"user_id": user_id, "join_code": join_code, "type": "student"}
+    )
     return {"success": success}
 
 
@@ -159,8 +161,9 @@ async def create_classroom(
     )
     if not result[0]:
         raise HTTPException(status_code=400, detail="Bad request")
+    join_code = result[2]
     success = await user_join_classroom(
-        {"user_id": user_id, "classroom_id": result[1], "type": "teacher"}
+        {"user_id": user_id, "join_code": join_code, "type": "teacher"}
     )
     if not success:
         raise HTTPException(status_code=400, detail="Bad request")
@@ -293,7 +296,7 @@ async def delete_assignment(
 async def create_assignment(
     body: CreateAssignment, auth_headers: list = Depends(is_logged_in)
 ) -> dict:
-    # classroom_id, author_id, title, description, assignment_type, graded, articles
+    # classroom_id, user_id, title, description, assignment_type, graded, articles
     author_id = body.user_id
     assignment_type = body.assignment_type
     articles = body.articles
@@ -301,6 +304,7 @@ async def create_assignment(
     description = body.description
     graded = body.graded
     title = body.title
+    print(body)
 
     if (not auth_headers[0]) and (author_id == auth_headers[1]):
         raise HTTPException(status_code=401, detail="Unauthorised")

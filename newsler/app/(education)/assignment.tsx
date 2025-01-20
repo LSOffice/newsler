@@ -308,7 +308,7 @@ export default function Assignment() {
                   {students.map((_, index) => (
                     <View
                       key={"student_" + index}
-                      className="flex flex-col w-full border border-dashed py-2 px-3 rounded-2xl justify-center"
+                      className="flex flex-col w-full border border-dashed py-2 px-3 rounded-2xl justify-center mb-1"
                     >
                       <View className="flex flex-row items-center mb-2">
                         <Image
@@ -325,12 +325,19 @@ export default function Assignment() {
                         <Text>Started assignment: </Text>
                         <Text>{students[index]["started"] ? "✅" : "❌"}</Text>
                       </View>
-                      <View className="flex flex-row items-center">
+                      <View className="flex flex-row items-center mb-1">
                         <Text>Completed assignment: </Text>
                         <Text>
                           {students[index]["completed"] ? "✅" : "❌"}
                         </Text>
                       </View>
+                      {students[index]["completed"] ? (
+                        <View className="flex flex-row items-center">
+                          <Text>Score: {students[index]["score"]}/5</Text>
+                        </View>
+                      ) : (
+                        <></>
+                      )}
                     </View>
                   ))}
                 </ScrollView>
@@ -339,121 +346,130 @@ export default function Assignment() {
           ) : (
             <></>
           )}
-          <ScrollView className="h-full mt-5 px-4 w-full">
-            {articles.map((_, index) => (
-              <View className="flex flex-row w-full">
-                <TouchableOpacity
-                  key={"articles_" + index}
-                  className="border border-dashed w-3/4 p-2 rounded-2xl flex flex-row mb-1"
-                  onPress={() =>
-                    router.push("/article/" + articles[index]["article_id"])
-                  }
-                >
-                  <Image
-                    source={{
-                      uri: articles[index]["image_uri"],
-                    }}
-                    className="w-20 h-full rounded-2xl mr-3"
-                  />
-                  <View className="flex flex-col w-1/2">
-                    <Text className="text-sm font-bold flex-shrink mb-1">
-                      {articles[index]["title"].replace("\n", "")}
-                    </Text>
-                    <Text>
-                      {articles[index]["length"]}
-                      -minute read
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-                {details.completed ? (
-                  <View className="border border-dashed ml-2 w-1/4 p-2 rounded-2xl flex flex-col mb-1 items-center justify-center">
-                    <LucideCheck className="text-green-600" />
-                    <Text>Completed!</Text>
-                  </View>
-                ) : (
+          {details.user_type == "student" ? (
+            <ScrollView className="h-full mt-5 px-4 w-full">
+              {articles.map((_, index) => (
+                <View className="flex flex-row w-full">
                   <TouchableOpacity
-                    key={"_" + index}
-                    className="border border-dashed ml-2 w-1/4 p-2 rounded-2xl flex flex-col mb-1 items-center justify-center"
-                    onPress={async () => {
-                      try {
-                        let reloading = true;
-                        while (reloading) {
-                          Toast.show({
-                            type: "info",
-                            text1: "Starting quiz",
-                            visibilityTime: 100000,
-                          });
-                          const response = await fetch(
-                            apiUrl + "/edu/quiz/load",
-                            {
-                              method: "POST",
-                              headers: {
-                                Accept: "application/json",
-                                "Content-Type": "application/json",
-                                Authorization:
-                                  "Bearer " +
-                                  (await AsyncStorage.getItem("session_token")),
-                              },
-                              body: JSON.stringify({
-                                assignment_id: assignmentId,
-                                user_id: await AsyncStorage.getItem("userId"),
-                                article_id: articles[index]["article_id"],
-                              }),
-                            },
-                          );
-                          if (response.status === 308) {
-                            const newResponse = await fetch(
-                              apiUrl + "/auth/refreshsession",
+                    key={"articles_" + index}
+                    className="border border-dashed w-3/4 p-2 rounded-2xl flex flex-row mb-1"
+                    onPress={() =>
+                      router.push("/article/" + articles[index]["article_id"])
+                    }
+                  >
+                    <Image
+                      source={{
+                        uri: articles[index]["image_uri"],
+                      }}
+                      className="w-20 h-full rounded-2xl mr-3"
+                    />
+                    <View className="flex flex-col w-1/2">
+                      <Text className="text-sm font-bold flex-shrink mb-1">
+                        {articles[index]["title"].replace("\n", "")}
+                      </Text>
+                      <Text>
+                        {articles[index]["length"]}
+                        -minute read
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                  {details.completed ? (
+                    <View className="border border-dashed ml-2 w-1/4 p-2 rounded-2xl flex flex-col mb-1 items-center justify-center">
+                      <LucideCheck className="text-green-600" />
+                      <Text>Completed!</Text>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      key={"_" + index}
+                      className="border border-dashed ml-2 w-1/4 p-2 rounded-2xl flex flex-col mb-1 items-center justify-center"
+                      onPress={async () => {
+                        try {
+                          let reloading = true;
+                          while (reloading) {
+                            Toast.show({
+                              type: "info",
+                              text1: "Starting quiz",
+                              visibilityTime: 100000,
+                            });
+                            const response = await fetch(
+                              apiUrl + "/edu/quiz/load",
                               {
                                 method: "POST",
                                 headers: {
                                   Accept: "application/json",
                                   "Content-Type": "application/json",
+                                  Authorization:
+                                    "Bearer " +
+                                    (await AsyncStorage.getItem(
+                                      "session_token",
+                                    )),
                                 },
                                 body: JSON.stringify({
-                                  refresh_token:
-                                    await AsyncStorage.getItem("refresh_token"),
+                                  assignment_id: assignmentId,
                                   user_id: await AsyncStorage.getItem("userId"),
+                                  article_id: articles[index]["article_id"],
                                 }),
                               },
                             );
-                            const content = await newResponse.json();
-                            await AsyncStorage.setItem(
-                              "session_token",
-                              content["session_token"],
-                            );
-                            await AsyncStorage.setItem(
-                              "email",
-                              content["email"],
-                            );
-                            continue;
+                            if (response.status === 308) {
+                              const newResponse = await fetch(
+                                apiUrl + "/auth/refreshsession",
+                                {
+                                  method: "POST",
+                                  headers: {
+                                    Accept: "application/json",
+                                    "Content-Type": "application/json",
+                                  },
+                                  body: JSON.stringify({
+                                    refresh_token:
+                                      await AsyncStorage.getItem(
+                                        "refresh_token",
+                                      ),
+                                    user_id:
+                                      await AsyncStorage.getItem("userId"),
+                                  }),
+                                },
+                              );
+                              const content = await newResponse.json();
+                              await AsyncStorage.setItem(
+                                "session_token",
+                                content["session_token"],
+                              );
+                              await AsyncStorage.setItem(
+                                "email",
+                                content["email"],
+                              );
+                              continue;
+                            }
+                            const responseJson = await response.json();
+                            toggleModal();
+                            setQuiz(responseJson["quiz"]);
+                            setQuizArticleId(articles[index]["article_id"]);
+                            reloading = false;
+                            Toast.show({
+                              type: "info",
+                              text1: "Started quiz",
+                              visibilityTime: 500,
+                            });
                           }
-                          const responseJson = await response.json();
-                          toggleModal();
-                          setQuiz(responseJson["quiz"]);
-                          setQuizArticleId(articles[index]["article_id"]);
-                          reloading = false;
+                        } catch (e) {
                           Toast.show({
-                            type: "info",
-                            text1: "Started quiz",
-                            visibilityTime: 500,
+                            type: "error",
+                            text1: "An error occurred",
                           });
                         }
-                      } catch (e) {
-                        Toast.show({
-                          type: "error",
-                          text1: "An error occurred",
-                        });
-                      }
-                    }}
-                  >
-                    <LucideBookOpenText className="text-primary" />
-                    <Text>Start quiz</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            ))}
-          </ScrollView>
+                      }}
+                    >
+                      <LucideBookOpenText className="text-primary" />
+                      <Text>Start quiz</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+            </ScrollView>
+          ) : (
+            <></>
+          )}
           <Dialog isVisible={modalOpen} onBackdropPress={toggleModal}>
             <Text className="text-xl font-semibold mb-3">
               Quiz for article:

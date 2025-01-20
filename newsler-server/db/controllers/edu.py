@@ -3,6 +3,7 @@ import os
 import random
 import string
 from datetime import datetime
+from shlex import join
 from uuid import uuid4
 
 import aiomysql
@@ -30,7 +31,7 @@ async def user_edu_load(query: dict):
         else:
             sql = """SELECT uc.user_id, uc.classroom_id, uc.type, c.name, c.education_level, c.subject_code, u.username FROM user_classrooms uc INNER JOIN classrooms c ON c.classroom_id = uc.classroom_id INNER JOIN users u ON u.user_id = uc.user_id"""
             await cur.execute(sql)
-            user_type = "student"
+            user_type = result[0][1]
             results = [
                 {
                     "user_id": row[0],
@@ -68,8 +69,6 @@ async def user_edu_load(query: dict):
             for classroom_id in user_classroom_ids:
                 classroom = classrooms[classroom_id]
                 classroom["classroom_id"] = classroom_id
-                if classroom["teacher"] == username:
-                    user_type = "teacher"
                 user_classrooms.append(classroom)
 
             return user_type, user_classrooms
@@ -89,6 +88,11 @@ async def user_create_classroom(query: dict):
             return [False]
 
         classroom_id = str(uuid4())
+        join_code = (
+            "".join(
+                random.choice(string.ascii_uppercase + string.digits) for _ in range(6)
+            ),
+        )
         await cur.execute(
             "INSERT INTO classrooms (classroom_id, name, education_level, subject_code, join_code) VALUES (%s, %s, %s, %s, %s)",
             (
@@ -96,19 +100,16 @@ async def user_create_classroom(query: dict):
                 query["classroom_name"],
                 query["educational_level"],
                 query["subject_code"],
-                "".join(
-                    random.choice(string.ascii_uppercase + string.digits)
-                    for _ in range(6)
-                ),
+                join_code,
             ),
         )
         await conn.commit()
-        return [True, classroom_id]
+        return [True, classroom_id, join_code]
     conn.close()
 
 
 async def user_load_classroom(query: dict) -> dict:
-    # classroom_id, user_id
+    # classroom_id, user_id, type
     conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE"))  # type: ignore
     async with conn.cursor() as cur:
         await cur.execute(
@@ -216,7 +217,7 @@ async def user_load_classroom(query: dict) -> dict:
 
 
 async def user_join_classroom(query: dict):
-    # user_id, join_code
+    # user_id, join_code, type
     conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE"))  # type: ignore
     async with conn.cursor() as cur:
         await cur.execute(
@@ -239,7 +240,7 @@ async def user_join_classroom(query: dict):
 
         await cur.execute(
             "INSERT INTO user_classrooms (user_id, classroom_id, type) VALUES (%s, %s, %s)",
-            (query["user_id"], classroom_id, "student"),
+            (query["user_id"], classroom_id, query["type"]),
         )
         await conn.commit()
         return True
@@ -382,6 +383,7 @@ async def user_load_assignment(query: dict):
             )
             result = await cur.fetchall()
             if len(result) != 1:
+                print("abcd")
                 return {"success": False}
 
             await cur.execute(
@@ -481,6 +483,7 @@ async def user_load_assignment(query: dict):
                     "username": username[1],
                     "started": False,
                     "completed": False,
+                    "score": -1,
                 }
 
             await cur.execute(
@@ -493,6 +496,7 @@ async def user_load_assignment(query: dict):
                 student[quiz_attempt[0]]["started"] = True
                 if quiz_attempt[3] != 1:
                     student[quiz_attempt[0]]["completed"] = True
+                    student[quiz_attempt[0]]["score"] = quiz_attempt[3]
 
             students = []
             for stud in student:
@@ -501,6 +505,7 @@ async def user_load_assignment(query: dict):
                         "student_id": stud,
                         "started": student[stud]["started"],
                         "completed": student[stud]["completed"],
+                        "score": student[stud]["score"],
                         "username": student[stud]["username"],
                     }
                 )
@@ -530,7 +535,7 @@ async def user_load_quiz(query: dict):
 
             model = genai.GenerativeModel("gemini-1.5-flash")
             response = model.generate_content(
-                "Generate a five question quiz in an array of JSON format of question, answer in a 4-choice multiple choice format for a news article with content: "
+                "Generate a five question quiz in an array of JSON format of question, answer in a 4-choice multiple choice format for a news article with content (the fields should be 'question': string, 'choices': array, 'answer': string of the actual answer): "
                 + result[0][2]
             )
             response_text = response.text.replace("```", "")

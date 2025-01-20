@@ -1,3 +1,6 @@
+# This page represents all of the backend functions that power authentication functionality in this app.
+# The routes include /auth/login, /auth/signup, /auth/refreshtoken
+
 import asyncio
 import re
 from datetime import datetime, timedelta, timezone
@@ -21,6 +24,7 @@ from ..db.init import (
     auth_update_user_session_token_only,
 )
 
+# Loading environment variables to hash
 salt = open("config.txt", "r").readlines()[0].replace("salt=", "").encode()
 
 router = APIRouter(
@@ -30,6 +34,7 @@ router = APIRouter(
 )
 
 
+# Are all basemodels to help structure incoming data
 class Credentials(BaseModel):
     email: str | None = None
     password: str | None = None
@@ -40,30 +45,7 @@ class SessionRefresh(BaseModel):
     user_id: str | None = None
 
 
-"""
-async def is_logged_in(req: Request) -> list:
-    try:
-        session_token = req.headers["Authorization"]
-    except KeyError:
-        return [False, False]
-
-    session_token = session_token.replace("Bearer ", "")
-    hashed_session_token = bcrypt.hashpw(session_token.encode(), salt)
-
-    for user_id in sample_sessions_db:
-        if (
-            sample_sessions_db[user_id]["session_token"]
-            == hashed_session_token.decode()
-        ):
-            if datetime.now().timestamp() >= int(
-                sample_sessions_db[user_id]["sessionExpiresAt"]
-            ):
-                return [True, False]
-            return [True, True]
-    # Has account, invalid credentials
-    return [True, False]"""
-
-
+# Check if an email is in use by other users, so no clash occurs
 async def is_email_used(email: str | None):
     users = auth_search_user_by_username({"username": email})
 
@@ -73,6 +55,7 @@ async def is_email_used(email: str | None):
         return {"result": False}
 
 
+# Refresh the session token by using refresh token
 @router.post("/refreshsession")
 async def refresh_session(refreshCredentials: SessionRefresh):
     if refreshCredentials.refresh_token == None or refreshCredentials.user_id == None:
@@ -112,7 +95,7 @@ async def refresh_session(refreshCredentials: SessionRefresh):
     }
 
 
-# TODO: Can add inner join here (session and user data, if necessary)
+# Function to log the user by taking username and password to provide session token and refresh token
 @router.post("/login")
 async def login(login: Credentials, request: Request):
     if login.email == None or login.password == None:
@@ -182,6 +165,7 @@ async def login(login: Credentials, request: Request):
     }
 
 
+# Sign up function and helps the user login at the same time
 @router.post("/signup")
 async def signup(signupInfo: Credentials, request: Request):
     if signupInfo.email == None or signupInfo.password == None:

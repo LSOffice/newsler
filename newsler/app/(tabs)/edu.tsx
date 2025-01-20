@@ -115,6 +115,10 @@ const Education = () => {
             }),
           });
           const content = await newResponse.json();
+
+          setjoinForm({
+            classroom_code: "",
+          });
           await AsyncStorage.setItem("session_token", content["session_token"]);
           await AsyncStorage.setItem("email", content["email"]);
           continue;

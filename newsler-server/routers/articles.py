@@ -1,3 +1,7 @@
+# This page represents all of the backend functions that power article functionality in this app.
+# The routes include /articles/feed, /articles/headers, /articles/saved, /articles/save, /articles/view,
+# /articles/reaction, /articles/article
+
 import asyncio
 import os
 import random
@@ -34,9 +38,12 @@ from ..db.init import (
     auth_return_user_object_from_user_id,
 )
 
+# Loading environment variables to hash, use generative AI, and from .env file
 load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 salt = open("config.txt", "r").readlines()[0].replace("salt=", "").encode()
+
+# Are all basemodels to help structure incoming data
 
 
 class Feed(BaseModel):
@@ -73,9 +80,11 @@ class Headers(BaseModel):
     user_id: str | None = None
 
 
+# All articles pre-loaded
 articles = []
 
 
+# Implements a basic queue data structure with a fixed length
 class Queue:
     def __init__(self, length):
         self.obj = []
@@ -114,6 +123,7 @@ class Queue:
         return self.obj
 
 
+# Implements a basic stack data structure with a fixed length
 class Stack:
     def __init__(self, length):
         self.obj = []
@@ -155,6 +165,7 @@ class Stack:
             self.obj[i], self.obj[j] = self.obj[j], self.obj[i]
 
 
+# Preloading articles
 async def get_articles():
     global articles
     print("Getting articles")
@@ -166,10 +177,9 @@ asyncio.run(get_articles())
 
 router = APIRouter(prefix="/articles", tags=["articles"])
 feeds = {}
-valid_token_cache = {}
-# "token": {expiresAt}
 
 
+# Function to determine if user is logged in
 async def is_logged_in(req: Request) -> bool:
     try:
         session_token = req.headers["authorization"]
@@ -241,6 +251,7 @@ async def recent_x_user_article_interactions_ranked(user_id: str, x: int) -> lis
     return sorted(articles.items(), key=lambda item: item[1], reverse=True)
 
 
+# to get the ratings of users by article_ids
 async def user_article_ratings(users: list) -> dict:
     reaction_weighting = 0.7
     view_weighting = 0.1
@@ -295,6 +306,7 @@ async def user_article_ratings(users: list) -> dict:
     return user_dict
 
 
+# ratings of articles by users all around the world (trending)
 async def global_article_ratings() -> dict:
     reaction_weighting = 0.7
     view_weighting = 0.1
@@ -353,6 +365,7 @@ async def global_article_ratings() -> dict:
     return user_dict
 
 
+# Code that powers the main feed algorithm (trending "for you", specific topic, country-based)
 @router.post("/feed")
 async def feed(body: Feed, auth_headers: bool = Depends(is_logged_in)):
     global articles
@@ -668,18 +681,27 @@ async def feed(body: Feed, auth_headers: bool = Depends(is_logged_in)):
 
         for article_id in articles_a.index:
             article_id_list.append(article_id)
-
         if page == 1:
             if len(article_id_list) < 20:
                 random.shuffle(filtered_articles)
                 for i in range(20 - len(article_id_list)):
                     locked = True
+
                     while locked:
-                        if filtered_articles[0]["article_id"] not in article_id_list:
-                            article_id_list.append(filtered_articles[0]["article_id"])
+                        try:
+                            if (
+                                filtered_articles[0]["article_id"]
+                                not in article_id_list
+                            ):
+                                article_id_list.append(
+                                    filtered_articles[0]["article_id"]
+                                )
+                                locked = False
+                            else:
+                                filtered_articles.pop(0)
+                        except IndexError:
                             locked = False
-                        else:
-                            filtered_articles.pop(0)
+
         else:
             if len(article_id_list) < 30:
                 random.shuffle(filtered_articles)
@@ -702,13 +724,7 @@ async def feed(body: Feed, auth_headers: bool = Depends(is_logged_in)):
         return article_list
 
 
-@router.get("/aitest")
-async def aitest():
-    model = genai.GenerativeModel("gemini-1.5-flash")
-    response = model.generate_content("The opposite of hot is")
-    return response.text
-
-
+# Loads article information when viewing article
 @router.post("/article")
 async def article_information(
     body: Article, auth_headers: bool = Depends(is_logged_in)
@@ -720,6 +736,7 @@ async def article_information(
     )
 
 
+# Records an article view after article has been read
 @router.post("/view")
 async def article_view(body: ArticleView, auth_headers: bool = Depends(is_logged_in)):
     article_id = body.article_id
@@ -744,6 +761,7 @@ async def article_view(body: ArticleView, auth_headers: bool = Depends(is_logged
     return True
 
 
+# Record article reaction by user on article
 @router.post("/reaction")
 async def article_reaction(
     body: ArticleReaction, auth_headers: bool = Depends(is_logged_in)
@@ -762,6 +780,7 @@ async def article_reaction(
     )
 
 
+# Record article save by user into saved articles
 @router.post("/save")
 async def article_save(
     body: ArticleSaveReaction, auth_headers: bool = Depends(is_logged_in)
@@ -785,6 +804,7 @@ async def article_save(
     return True
 
 
+# Checks all articles that a user has saved
 @router.post("/saved")
 async def saved(body: Headers, auth_headers: bool = Depends(is_logged_in)):
     user_id = body.user_id
@@ -792,6 +812,7 @@ async def saved(body: Headers, auth_headers: bool = Depends(is_logged_in)):
         raise HTTPException(status_code=401, detail="Unauthorised")
 
     result = articles_get_saved_articles({"user_id": user_id})
+
     # Sorting the saved articles randomly
 
     stack = Stack(len(result))
@@ -802,6 +823,7 @@ async def saved(body: Headers, auth_headers: bool = Depends(is_logged_in)):
     return stack.getObject()
 
 
+# Get the headers "For you", country, topics of interest on top of feed page
 @router.post("/headers")
 async def headers(body: Headers, auth_headers: bool = Depends(is_logged_in)):
     user_id = body.user_id

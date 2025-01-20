@@ -181,6 +181,15 @@ const Home = () => {
               );
               await AsyncStorage.setItem("email", content["email"]);
               continue;
+            } else if (response.status != 200) {
+              loading = false;
+              setisRefresh(false);
+              Toast.show({
+                type: "error",
+                text1: "Error",
+                text2: "An error occurred",
+                visibilityTime: 1000,
+              });
             }
             loading = false;
             const responseJson = await response.json();

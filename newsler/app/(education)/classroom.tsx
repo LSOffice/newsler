@@ -100,7 +100,7 @@ export default function Classroom() {
               "Bearer " + (await AsyncStorage.getItem("session_token")),
           },
           body: JSON.stringify({
-            author_id: await AsyncStorage.getItem("userId"),
+            user_id: await AsyncStorage.getItem("userId"),
             assignment_type: createPost,
             articles: createCasualPost.articles,
             classroom_id: classroomId,
@@ -363,7 +363,8 @@ export default function Classroom() {
 
           setname(responseJson["details"]["name"]);
           setsubject_code(responseJson["details"]["subject_code"]);
-          setuserType(responseJson["details"]["user_type"]);
+
+          setuserType(responseJson["user_type"]);
           setclassroomPosts(responseJson["assignments"]);
           setteacherName(responseJson["details"]["teacher"]);
           setJoinCode(responseJson["details"]["join_code"]);
