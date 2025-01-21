@@ -1,3 +1,6 @@
+// File that returns the education page
+// path: /edu
+
 import {
   View,
   Text,
@@ -11,6 +14,7 @@ import {
 } from "react-native";
 import React, { useEffect, useState } from "react";
 import images from "../../constants/images";
+// import all the icons needed from lucide-react-native
 import {
   LucideBookOpen,
   LucideCheck,
@@ -23,6 +27,7 @@ import {
   LucideX,
 } from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+// import dropdown and toast functionalities
 import { Dropdown } from "react-native-element-dropdown";
 import Toast from "react-native-toast-message";
 import { router } from "expo-router";
@@ -37,6 +42,7 @@ const Education = () => {
     educational_level: "primary",
   });
   const [classroomList, setClassroomList] = useState([]);
+  // set the user type to student by default
   const [userType, setUserType] = useState("student");
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
   const [isLoading, setisLoading] = useState(true);
@@ -70,6 +76,7 @@ const Education = () => {
     return `bg-${randomColor}-400`;
   };
 
+  // function to join classroom using the classroom code
   const joinClassroom = async () => {
     if (joinform.classroom_code == "") {
       Toast.show({
@@ -142,6 +149,7 @@ const Education = () => {
     }
   };
 
+  // function to create a classroom
   const createClassroom = async () => {
     if (
       createForm.classroom_name == "" ||
@@ -205,6 +213,7 @@ const Education = () => {
     }
   };
 
+  // useeffect to fetch data from the api
   useEffect(() => {
     if (!reload) {
       return;
@@ -241,7 +250,7 @@ const Education = () => {
             const content = await newResponse.json();
             await AsyncStorage.setItem(
               "session_token",
-              content["session_token"],
+              content["session_token"]
             );
             await AsyncStorage.setItem("email", content["email"]);
             continue;
@@ -259,10 +268,12 @@ const Education = () => {
     fetchData();
   }, [reload]);
 
+  // set reload to true when the component mounts
   useEffect(() => {
     setreload(true);
   }, []);
 
+  // showing activity indicator if not loaded
   if (isLoading) {
     return (
       <View className="w-full h-full flex justify-center items-center">
@@ -270,6 +281,7 @@ const Education = () => {
       </View>
     );
   } else {
+    // else show education page
     return (
       <SafeAreaView className="bg-white h-full w-full flex-1">
         <View className="flex flex-row items-center justify-center">
@@ -440,7 +452,7 @@ const Education = () => {
                   onPress={() =>
                     router.push(
                       "/classroom?classroom_id=" +
-                        classroomList[index]["classroom_id"],
+                        classroomList[index]["classroom_id"]
                     )
                   }
                 >

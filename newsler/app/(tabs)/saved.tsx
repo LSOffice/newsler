@@ -1,3 +1,6 @@
+// this file returns the saved articles page
+// path: /saved
+
 import {
   View,
   Text,
@@ -15,6 +18,7 @@ import { router, useFocusEffect } from "expo-router";
 import Toast from "react-native-toast-message";
 
 const Saved = () => {
+  // state variables
   const [savedPosts, setSavedPosts] = useState([]);
   const [isLoaded, setisLoaded] = useState(false);
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
@@ -22,15 +26,18 @@ const Saved = () => {
 
   useFocusEffect(
     React.useCallback(() => {
+      // set isLoaded to false when the component is focused
       setisLoaded(false);
-    }, []),
+    }, [])
   );
 
   useEffect(() => {
+    // set isLoaded to false when the component mounts
     setisLoaded(false);
   }, []);
 
   useEffect(() => {
+    // this effect fetches the saved articles from the api
     if (isLoaded) {
       return;
     }
@@ -38,6 +45,7 @@ const Saved = () => {
       try {
         let reloading = true;
         while (reloading) {
+          // fetch saved articles from the api
           const response = await fetch(apiUrl + "/articles/saved", {
             method: "POST",
             headers: {
@@ -51,6 +59,7 @@ const Saved = () => {
             }),
           });
           if (response.status === 308) {
+            // refresh session token if it has expired
             const newResponse = await fetch(apiUrl + "/auth/refreshsession", {
               method: "POST",
               headers: {
@@ -65,12 +74,13 @@ const Saved = () => {
             const content = await newResponse.json();
             await AsyncStorage.setItem(
               "session_token",
-              content["session_token"],
+              content["session_token"]
             );
             await AsyncStorage.setItem("email", content["email"]);
             continue;
           }
           const responseJson = await response.json();
+          // set the saved posts and isLoaded to true
           reloading = false;
           setSavedPosts(responseJson);
           setisLoaded(true);
@@ -88,6 +98,7 @@ const Saved = () => {
   }, [isLoaded]);
 
   if (!isLoaded) {
+    // render loading indicator while fetching data
     return (
       <View className="w-full h-full flex justify-center items-center">
         <ActivityIndicator color="black" className="mb-3" />
@@ -95,6 +106,7 @@ const Saved = () => {
     );
   } else {
     return (
+      // render saved articles
       <SafeAreaView className="w-full h-full bg-white flex-1">
         <View className="flex flex-col">
           <View className="flex flex-row items-center gap-2 justify-center">
@@ -128,7 +140,7 @@ const Saved = () => {
                             onPress={() =>
                               router.push(
                                 "article/" +
-                                  savedPosts[index * 4 + index1].article_id,
+                                  savedPosts[index * 4 + index1].article_id
                               )
                             }
                           >
@@ -149,7 +161,7 @@ const Saved = () => {
                           </TouchableOpacity>
                         ))}
                     </View>
-                  ),
+                  )
                 )}
 
                 <View className="h-[150px]" />

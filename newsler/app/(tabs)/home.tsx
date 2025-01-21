@@ -1,3 +1,6 @@
+// File that returns the home feed page
+// path: /home
+
 import {
   View,
   Text,
@@ -59,6 +62,7 @@ const Home = () => {
     } catch {}
   };
 
+  // this function sets the isRefresh state to true if it's not already true
   const getData = () => {
     if (!isRefresh) {
       setisRefresh(true);
@@ -66,6 +70,7 @@ const Home = () => {
   };
 
   useEffect(() => {
+    // this effect runs only once when the component mounts
     getData();
     Toast.show({
       type: "info",
@@ -73,6 +78,7 @@ const Home = () => {
       visibilityTime: 500,
     });
     const fetchData = async () => {
+      // fetches user email from async storage
       setEmail(await AsyncStorage.getItem("email"));
       try {
         let loading = true;
@@ -106,7 +112,7 @@ const Home = () => {
             const content = await newResponse.json();
             await AsyncStorage.setItem(
               "session_token",
-              content["session_token"],
+              content["session_token"]
             );
             await AsyncStorage.setItem("email", content["email"]);
             continue;
@@ -138,6 +144,7 @@ const Home = () => {
   }, []);
 
   useEffect(() => {
+    // this effect runs whenever the isRefresh state changes
     const fetchData = async () => {
       if (isRefresh) {
         let tab = "For you";
@@ -177,7 +184,7 @@ const Home = () => {
               const content = await newResponse.json();
               await AsyncStorage.setItem(
                 "session_token",
-                content["session_token"],
+                content["session_token"]
               );
               await AsyncStorage.setItem("email", content["email"]);
               continue;
@@ -212,10 +219,12 @@ const Home = () => {
   }, [isRefresh]);
 
   const onPress = (route: RouteProps) => {
+    // sets the selected index and calls the getData function
     setSelectedIndex(route.id);
     getData();
   };
 
+  // pagination on infinite scroll
   const showDataSource = () => {
     if (selectedIndex == 0) {
       setDataSource([...newsArticles]);
@@ -224,6 +233,7 @@ const Home = () => {
     }
   };
 
+  // each news article displayed
   const ItemView = ({
     item,
   }: {
@@ -239,6 +249,7 @@ const Home = () => {
     };
   }) => {
     return item.live ? (
+      // if live article, but not many articles are live articles
       <TouchableOpacity
         onPress={() => getItem(item)}
         className="border-[0.5px] rounded-2xl border-tertiary flex flex-col h-56"
@@ -274,6 +285,7 @@ const Home = () => {
         </View>
       </TouchableOpacity>
     ) : (
+      // normal article (most are in this style)
       <TouchableOpacity
         onPress={() => getItem(item)}
         className="border-[0.5px] rounded-2xl border-tertiary flex flex-col h-48"
@@ -327,14 +339,17 @@ const Home = () => {
     live: boolean;
   }) => {
     router.push("article/" + item.article_id);
-  };
+  }; // navigates to the article page
+
+  // generates a random integer
   const getRandomInt = (max: number) => {
     return Math.floor(Math.random() * max);
   };
 
   const handleScroll = async (e: any) => {
     e.persist();
-    // To mimic effect of infinite scroll
+    // handles the scroll event of the flatlist, implementing infinite scroll
+    // checks if scrolling down
     if (
       e.nativeEvent.contentOffset.y > yOffset &&
       e.nativeEvent.contentOffset.y > 0 &&
@@ -375,7 +390,7 @@ const Home = () => {
               const content = await newResponse.json();
               await AsyncStorage.setItem(
                 "session_token",
-                content["session_token"],
+                content["session_token"]
               );
               await AsyncStorage.setItem("email", content["email"]);
               continue;
@@ -431,7 +446,7 @@ const Home = () => {
               const content = await newResponse.json();
               await AsyncStorage.setItem(
                 "session_token",
-                content["session_token"],
+                content["session_token"]
               );
               await AsyncStorage.setItem("email", content["email"]);
               continue;
@@ -451,6 +466,7 @@ const Home = () => {
       }
     } else {
       // going up
+      // refreshes data if scrolling up significantly
       if (yOffset < -20) {
         setisRefresh(true);
       }
@@ -459,6 +475,7 @@ const Home = () => {
     setyOffset(e.nativeEvent.contentOffset.y);
   };
 
+  // if user object modal is visible
   const [userDialogVisible, setUserDialogVisible] = useState(false);
 
   return (
@@ -503,7 +520,9 @@ const Home = () => {
               items={navigationTabs}
               onPress={onPress}
               selected={selectedIndex}
-              activeBackgroundColor={`${selectedIndex == 1 ? "#FCA311" : "#275F6F"}`}
+              activeBackgroundColor={`${
+                selectedIndex == 1 ? "#FCA311" : "#275F6F"
+              }`}
               activeTextColor={`${selectedIndex == 1 ? "black" : "white"}`}
               buttonStyle={{
                 borderColor: "white",

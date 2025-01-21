@@ -2,6 +2,7 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+// sets an item in asyncstorage
 export const setItem = async (key, value) => {
   try {
     await AsyncStorage.setItem(key, JSON.stringify(value));
@@ -10,6 +11,7 @@ export const setItem = async (key, value) => {
   }
 };
 
+// gets an item from asyncstorage
 export const getItem = async (key) => {
   try {
     const value = await AsyncStorage.getItem(key);
@@ -20,6 +22,7 @@ export const getItem = async (key) => {
   }
 };
 
+// removes an item from asyncstorage
 export const removeItem = async (key) => {
   try {
     await AsyncStorage.removeItem(key);
@@ -28,6 +31,7 @@ export const removeItem = async (key) => {
   }
 };
 
+// merges an item in asyncstorage
 export const mergeItem = async (key, value) => {
   try {
     await AsyncStorage.mergeItem(key, JSON.stringify(value));
@@ -36,6 +40,7 @@ export const mergeItem = async (key, value) => {
   }
 };
 
+// clears asyncstorage
 export const clear = async () => {
   try {
     await AsyncStorage.clear();
@@ -44,6 +49,7 @@ export const clear = async () => {
   }
 };
 
+// gets all keys from asyncstorage
 export const getAllKeys = async () => {
   try {
     return await AsyncStorage.getAllKeys();
@@ -53,6 +59,7 @@ export const getAllKeys = async () => {
   }
 };
 
+// gets all items from asyncstorage
 export const getAllItems = async () => {
   try {
     const keys = await AsyncStorage.getAllKeys();

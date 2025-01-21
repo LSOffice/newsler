@@ -28,14 +28,15 @@ const Login = () => {
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
   const [autoSignIn, setautoSignIn] = useState(true);
 
-  // L
+  // On load page: check if user has an active session_token or refresh token
+  // If they have an active session_token/refresh_token, refresh session by using refresh token
   useEffect(() => {
     const fetchData = async () => {
-      const st = await AsyncStorage.getItem("session_token");
-      const rt = await AsyncStorage.getItem("refresh_token");
+      const session_token = await AsyncStorage.getItem("session_token");
+      const refresh_token = await AsyncStorage.getItem("refresh_token");
 
       const userId = await AsyncStorage.getItem("userId");
-      if (st !== null) {
+      if (session_token !== null || refresh_token !== null) {
         try {
           Toast.show({
             type: "info",
@@ -49,7 +50,10 @@ const Login = () => {
               Accept: "application/json",
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ refresh_token: rt, user_id: userId }),
+            body: JSON.stringify({
+              refresh_token: refresh_token,
+              user_id: userId,
+            }),
           });
           const content = await response.json();
           await AsyncStorage.setItem("session_token", content["session_token"]);
@@ -74,6 +78,8 @@ const Login = () => {
     const result = fetchData().catch(console.error);
   });
 
+  // submit login form to /auth/login
+  // it returns email, session_token, user_id and refresh_token and pushes user to home page
   const submit = async (e: any) => {
     e.disabled = true;
     if (form.email == "" || form.password == "") {
@@ -108,14 +114,14 @@ const Login = () => {
       }
       await AsyncStorage.setItem(
         "session_token",
-        loginContent["session_token"],
+        loginContent["session_token"]
       );
       await AsyncStorage.setItem("email", loginContent["email"]);
       // user change
       await AsyncStorage.setItem("userId", loginContent["user_id"]);
       await AsyncStorage.setItem(
         "refresh_token",
-        loginContent["refresh_token"],
+        loginContent["refresh_token"]
       );
       router.push("/home");
     } catch (e) {
@@ -129,6 +135,7 @@ const Login = () => {
     }
   };
 
+  // if user is automatically signing in, display "Automatically signing you in"
   if (autoSignIn) {
     return (
       <SafeAreaView className="bg-white h-full w-full">
@@ -154,6 +161,7 @@ const Login = () => {
       </SafeAreaView>
     );
   } else {
+    // else, show login menu with username and password fields
     return (
       <SafeAreaView className="bg-white h-full w-full">
         <ScrollView contentContainerStyle={{ height: "100%", width: "100%" }}>
@@ -195,7 +203,9 @@ const Login = () => {
                 activeOpacity={0.7}
                 onPress={submit}
                 disabled={isSubmitting}
-                className={`bg-primary rounded-xl h-10 justify-center items-center w-full mt-5 ${isSubmitting ? "opacity-50" : ""}`}
+                className={`bg-primary rounded-xl h-10 justify-center items-center w-full mt-5 ${
+                  isSubmitting ? "opacity-50" : ""
+                }`}
               >
                 <Text className="text-white font-semibold text-lg">Login</Text>
               </TouchableOpacity>

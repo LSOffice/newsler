@@ -1,3 +1,6 @@
+// this file returns the main page
+// path: /
+
 import { Redirect, router } from "expo-router";
 import React, { useEffect } from "react";
 import {
@@ -35,6 +38,7 @@ interface TextInputWithDefaultProps extends TextIput {
 ).defaultProps!.allowFontScaling = false;
 
 export default function App() {
+  //this function fetches the userId from AsyncStorage and redirects to the login page if it exists.
   useEffect(() => {
     const fetchUserId = async () => {
       const userId = await AsyncStorage.getItem("userId");
@@ -46,6 +50,7 @@ export default function App() {
     const result = fetchUserId().catch(console.error);
   });
 
+  //this is the main UI of the app.
   return (
     <SafeAreaView className="bg-white h-full">
       <ScrollView contentContainerStyle={{ height: "100%", width: "100%" }}>

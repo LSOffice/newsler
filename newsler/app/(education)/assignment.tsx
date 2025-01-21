@@ -1,3 +1,6 @@
+// File that returns the assignment page
+// Path: /assignment
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useIsFocused } from "@react-navigation/native";
 import { Dialog } from "@rneui/themed";
@@ -27,7 +30,10 @@ import { Dropdown } from "react-native-element-dropdown";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 
+// main assignment object
+
 export default function Assignment() {
+  // set local varaibles
   const [searchParams] = useSearchParams();
   const [isLoading, setisLoading] = useState(true);
   const assignmentId = searchParams[1];
@@ -49,6 +55,7 @@ export default function Assignment() {
   const [quizAnswers, setquizAnswers] = useState(["", "", "", "", ""]);
   const [quizArticleId, setQuizArticleId] = useState("");
 
+  // toggle opening quiz modal and reset quiz progress when opening and closing
   const toggleModal = () => {
     setQuiz([]);
     setquizAnswers(["", "", "", "", ""]);
@@ -56,11 +63,15 @@ export default function Assignment() {
     setModalOpen(!modalOpen);
   };
 
+  // on page load, set loading assignment to true
   useEffect(() => {
     setisLoading(true);
   }, []);
 
+  // when isLoading status is changed, this code runs
+  // loads assignment details and sets into the page
   useEffect(() => {
+    // prevent running when setting to notLoading (runs once instead of twice)
     if (!isLoading) {
       return;
     }
@@ -96,7 +107,7 @@ export default function Assignment() {
             const content = await newResponse.json();
             await AsyncStorage.setItem(
               "session_token",
-              content["session_token"],
+              content["session_token"]
             );
             await AsyncStorage.setItem("email", content["email"]);
             continue;
@@ -130,6 +141,7 @@ export default function Assignment() {
     fetchData();
   }, [isLoading]);
 
+  // if page is still loading, display loading animation
   if (isLoading) {
     return (
       <SafeAreaView
@@ -148,6 +160,7 @@ export default function Assignment() {
       </SafeAreaView>
     );
   } else {
+    // else, display assignment details
     return (
       <SafeAreaView
         className="bg-white h-full w-full"
@@ -208,7 +221,9 @@ export default function Assignment() {
               </View>
               <View className="flex flex-row mt-1 items-center">
                 <View
-                  className={`${details.graded == 1 ? "bg-green-400" : "bg-red-700"} p-0.5 rounded-full`}
+                  className={`${
+                    details.graded == 1 ? "bg-green-400" : "bg-red-700"
+                  } p-0.5 rounded-full`}
                 >
                   {details.graded == 1 ? (
                     <LucideCheck size={20} className="text-black" />
@@ -248,7 +263,7 @@ export default function Assignment() {
                             assignment_id: assignmentId,
                             user_id: await AsyncStorage.getItem("userId"),
                           }),
-                        },
+                        }
                       );
                       if (response.status === 308) {
                         const newResponse = await fetch(
@@ -260,16 +275,17 @@ export default function Assignment() {
                               "Content-Type": "application/json",
                             },
                             body: JSON.stringify({
-                              refresh_token:
-                                await AsyncStorage.getItem("refresh_token"),
+                              refresh_token: await AsyncStorage.getItem(
+                                "refresh_token"
+                              ),
                               user_id: await AsyncStorage.getItem("userId"),
                             }),
-                          },
+                          }
                         );
                         const content = await newResponse.json();
                         await AsyncStorage.setItem(
                           "session_token",
-                          content["session_token"],
+                          content["session_token"]
                         );
                         await AsyncStorage.setItem("email", content["email"]);
                         continue;
@@ -401,7 +417,7 @@ export default function Assignment() {
                                   Authorization:
                                     "Bearer " +
                                     (await AsyncStorage.getItem(
-                                      "session_token",
+                                      "session_token"
                                     )),
                                 },
                                 body: JSON.stringify({
@@ -409,7 +425,7 @@ export default function Assignment() {
                                   user_id: await AsyncStorage.getItem("userId"),
                                   article_id: articles[index]["article_id"],
                                 }),
-                              },
+                              }
                             );
                             if (response.status === 308) {
                               const newResponse = await fetch(
@@ -421,23 +437,23 @@ export default function Assignment() {
                                     "Content-Type": "application/json",
                                   },
                                   body: JSON.stringify({
-                                    refresh_token:
-                                      await AsyncStorage.getItem(
-                                        "refresh_token",
-                                      ),
-                                    user_id:
-                                      await AsyncStorage.getItem("userId"),
+                                    refresh_token: await AsyncStorage.getItem(
+                                      "refresh_token"
+                                    ),
+                                    user_id: await AsyncStorage.getItem(
+                                      "userId"
+                                    ),
                                   }),
-                                },
+                                }
                               );
                               const content = await newResponse.json();
                               await AsyncStorage.setItem(
                                 "session_token",
-                                content["session_token"],
+                                content["session_token"]
                               );
                               await AsyncStorage.setItem(
                                 "email",
-                                content["email"],
+                                content["email"]
                               );
                               continue;
                             }
@@ -550,16 +566,17 @@ export default function Assignment() {
                             "Content-Type": "application/json",
                           },
                           body: JSON.stringify({
-                            refresh_token:
-                              await AsyncStorage.getItem("refresh_token"),
+                            refresh_token: await AsyncStorage.getItem(
+                              "refresh_token"
+                            ),
                             user_id: await AsyncStorage.getItem("userId"),
                           }),
-                        },
+                        }
                       );
                       const content = await newResponse.json();
                       await AsyncStorage.setItem(
                         "session_token",
-                        content["session_token"],
+                        content["session_token"]
                       );
                       await AsyncStorage.setItem("email", content["email"]);
                       continue;

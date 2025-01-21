@@ -1,3 +1,6 @@
+// File that returns the signup authentication page
+// Path: /signup
+
 import { View, Text, ScrollView, Image, TouchableOpacity } from "react-native";
 import React, { useEffect, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -8,6 +11,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
 
 const SignUp = () => {
+  // set local variables
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -15,6 +19,7 @@ const SignUp = () => {
   const [isSubmitting, setisSubmitting] = useState(false);
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
+  // on page loaded, if userId is saved in localstorage, push user to login page
   useEffect(() => {
     const fetchUserId = async () => {
       const userId = await AsyncStorage.getItem("userId");
@@ -26,6 +31,7 @@ const SignUp = () => {
     const result = fetchUserId().catch(console.error);
   });
 
+  // submitting function for signup form  (signup -> login -> push to home page)
   const submit = async (e: any) => {
     if (form.email == "" || form.password == "") {
       Toast.show({
@@ -101,12 +107,12 @@ const SignUp = () => {
 
       await AsyncStorage.setItem(
         "session_token",
-        await loginContent["session_token"],
+        await loginContent["session_token"]
       );
       await AsyncStorage.setItem("userId", await loginContent["user_id"]);
       await AsyncStorage.setItem(
         "refresh_token",
-        await loginContent["refresh_token"],
+        await loginContent["refresh_token"]
       );
       await AsyncStorage.setItem("email", loginContent["email"]);
       router.push("/home");
@@ -120,6 +126,7 @@ const SignUp = () => {
     }
   };
 
+  // Signup page rendered with form and redirect to login button
   return (
     <SafeAreaView className="bg-white h-full w-full">
       <ScrollView contentContainerStyle={{ height: "100%", width: "100%" }}>
@@ -161,7 +168,9 @@ const SignUp = () => {
               activeOpacity={0.7}
               onPress={submit}
               disabled={isSubmitting}
-              className={`bg-primary rounded-xl h-10 justify-center items-center w-full mt-5 ${isSubmitting ? "opacity-50" : ""}`}
+              className={`bg-primary rounded-xl h-10 justify-center items-center w-full mt-5 ${
+                isSubmitting ? "opacity-50" : ""
+              }`}
             >
               <Text className="text-white font-semibold text-lg">Sign up</Text>
             </TouchableOpacity>

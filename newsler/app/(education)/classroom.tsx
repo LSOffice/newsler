@@ -1,3 +1,6 @@
+// File that returns the classroom page
+// Path: /classroom
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useIsFocused } from "@react-navigation/native";
 import { Dialog, Switch } from "@rneui/themed";
@@ -27,6 +30,7 @@ import {
 } from "react-native";
 import Toast from "react-native-toast-message";
 
+// main function that renders the classroom page
 export default function Classroom() {
   const [searchParams] = useSearchParams();
   const [classroomPosts, setclassroomPosts] = useState([]);
@@ -59,9 +63,10 @@ export default function Classroom() {
   useFocusEffect(
     React.useCallback(() => {
       setisReloading(true);
-    }, []),
+    }, [])
   );
 
+  // function to create a post
   const createPostAction = async () => {
     try {
       let reloading = true;
@@ -149,6 +154,7 @@ export default function Classroom() {
     }
   };
 
+  // function to create an assignment
   const createAssignmentAction = async () => {
     try {
       let reloading = true;
@@ -241,10 +247,12 @@ export default function Classroom() {
     }
   };
 
+  // function to toggle the select modal
   const toggleSelectModal = () => {
     setSelectModalOpen(!selectModalOpen);
   };
 
+  // function to toggle the modal and fetch articles
   const toggleModal = async () => {
     setModalOpen(!modalOpen);
     if (!modalOpen) {
@@ -282,7 +290,7 @@ export default function Classroom() {
             const content = await newResponse.json();
             await AsyncStorage.setItem(
               "session_token",
-              content["session_token"],
+              content["session_token"]
             );
             await AsyncStorage.setItem("email", content["email"]);
             continue;
@@ -301,6 +309,7 @@ export default function Classroom() {
     }
   };
 
+  // function to toggle the switch for graded assignments
   const toggleSwitch = () => {
     setCreateAssignment({
       ...createAssignment,
@@ -308,10 +317,12 @@ export default function Classroom() {
     });
   };
 
+  // function to go back to the previous page
   const back = () => {
     router.back();
   };
 
+  //useEffect to reload the page when it is focused
   useEffect(() => {
     setisReloading(true);
   }, []);
@@ -320,6 +331,7 @@ export default function Classroom() {
     if (!isReloading) {
       return;
     }
+    // function to fetch classroom data
     const fetchData = async () => {
       try {
         setisLoading(true);
@@ -353,7 +365,7 @@ export default function Classroom() {
             const content = await newResponse.json();
             await AsyncStorage.setItem(
               "session_token",
-              content["session_token"],
+              content["session_token"]
             );
             await AsyncStorage.setItem("email", content["email"]);
             continue;
@@ -381,6 +393,7 @@ export default function Classroom() {
     fetchData();
   }, [isReloading]);
 
+  // render page if still loading to show activity indicator
   if (isLoading) {
     return (
       <SafeAreaView
@@ -396,6 +409,7 @@ export default function Classroom() {
       </SafeAreaView>
     );
   } else if (createPost == "share") {
+    // if choosing to share post (create share article post)
     return (
       <SafeAreaView
         className="bg-white h-full w-full"
@@ -473,7 +487,7 @@ export default function Classroom() {
                           .find(
                             (article) =>
                               article.article_id ===
-                              createCasualPost.articles[index],
+                              createCasualPost.articles[index]
                           )
                           ?.title.replace("\n", "")}
                       </Text>
@@ -506,7 +520,7 @@ export default function Classroom() {
                   <TouchableOpacity
                     className={`w-full mt-3 h-20 p-2 rounded-2xl border-dashed border items-center justify-center ${
                       createCasualPost.articles.includes(
-                        modalArticles[index].article_id,
+                        modalArticles[index].article_id
                       )
                         ? "bg-gray-200"
                         : ""
@@ -515,11 +529,11 @@ export default function Classroom() {
                     onPress={() => {
                       if (
                         !createCasualPost.articles.includes(
-                          modalArticles[index].article_id,
+                          modalArticles[index].article_id
                         )
                       ) {
                         createCasualPost.articles.push(
-                          modalArticles[index].article_id,
+                          modalArticles[index].article_id
                         );
                         Toast.show({
                           type: "info",
@@ -528,7 +542,7 @@ export default function Classroom() {
                         });
                       } else {
                         var index1 = createCasualPost.articles.indexOf(
-                          modalArticles[index].article_id,
+                          modalArticles[index].article_id
                         );
                         if (index !== -1) {
                           createCasualPost.articles.splice(index1, 1);
@@ -559,6 +573,7 @@ export default function Classroom() {
       </SafeAreaView>
     );
   } else if (createPost == "task") {
+    // if choosing to create assignment post
     return (
       <SafeAreaView
         className="bg-white h-full w-full"
@@ -646,7 +661,7 @@ export default function Classroom() {
                           .find(
                             (article) =>
                               article.article_id ===
-                              createAssignment.articles[index],
+                              createAssignment.articles[index]
                           )
                           ?.title.replace("\n", "")}
                       </Text>
@@ -679,7 +694,7 @@ export default function Classroom() {
                   <TouchableOpacity
                     className={`w-full mt-3 h-20 p-2 rounded-2xl border-dashed border items-center justify-center ${
                       createAssignment.articles.includes(
-                        modalArticles[index].article_id,
+                        modalArticles[index].article_id
                       )
                         ? "bg-gray-200"
                         : ""
@@ -688,11 +703,11 @@ export default function Classroom() {
                     onPress={() => {
                       if (
                         !createAssignment.articles.includes(
-                          modalArticles[index].article_id,
+                          modalArticles[index].article_id
                         )
                       ) {
                         createAssignment.articles.push(
-                          modalArticles[index].article_id,
+                          modalArticles[index].article_id
                         );
                         Toast.show({
                           type: "info",
@@ -701,7 +716,7 @@ export default function Classroom() {
                         });
                       } else {
                         var index1 = createAssignment.articles.indexOf(
-                          modalArticles[index].article_id,
+                          modalArticles[index].article_id
                         );
                         if (index !== -1) {
                           createAssignment.articles.splice(index1, 1);
@@ -732,6 +747,7 @@ export default function Classroom() {
       </SafeAreaView>
     );
   } else {
+    // if viewing classroom feed as normal
     return (
       <SafeAreaView
         className="bg-white h-full w-full"
@@ -823,15 +839,15 @@ export default function Classroom() {
                         <Text className="text-xs font-light">
                           {new Date().toLocaleDateString() ==
                           new Date(
-                            classroomPosts[index]["timestamp"] * 1000,
+                            classroomPosts[index]["timestamp"] * 1000
                           ).toLocaleDateString()
                             ? "Today"
                             : new Date(
-                                classroomPosts[index]["timestamp"] * 1000,
+                                classroomPosts[index]["timestamp"] * 1000
                               ).toLocaleDateString()}
                           {" at "}
                           {new Date(
-                            classroomPosts[index]["timestamp"] * 1000,
+                            classroomPosts[index]["timestamp"] * 1000
                           ).toLocaleTimeString()}
                         </Text>
                       </View>
@@ -872,7 +888,7 @@ export default function Classroom() {
                             "/article/" +
                               classroomPosts[index]["article"][index1][
                                 "article_id"
-                              ],
+                              ]
                           )
                         }
                       >
@@ -915,15 +931,15 @@ export default function Classroom() {
                         <Text className="text-xs font-light">
                           {new Date().toLocaleDateString() ==
                           new Date(
-                            classroomPosts[index]["timestamp"] * 1000,
+                            classroomPosts[index]["timestamp"] * 1000
                           ).toLocaleDateString()
                             ? "Today"
                             : new Date(
-                                classroomPosts[index]["timestamp"] * 1000,
+                                classroomPosts[index]["timestamp"] * 1000
                               ).toLocaleDateString()}
                           {" at "}
                           {new Date(
-                            classroomPosts[index]["timestamp"] * 1000,
+                            classroomPosts[index]["timestamp"] * 1000
                           ).toLocaleTimeString()}
                         </Text>
                       </View>
@@ -968,7 +984,7 @@ export default function Classroom() {
                         onPress={() =>
                           router.push(
                             "/assignment?assignment_id=" +
-                              classroomPosts[index].assignment_id,
+                              classroomPosts[index].assignment_id
                           )
                         }
                         className="border py-2 px-3 rounded-2xl"
@@ -977,7 +993,11 @@ export default function Classroom() {
                       </TouchableOpacity>
                       <View className="flex flex-row ml-3 items-center">
                         <View
-                          className={`${classroomPosts[index]["graded"] == 1 ? "bg-green-400" : "bg-red-700"} p-0.5 rounded-full`}
+                          className={`${
+                            classroomPosts[index]["graded"] == 1
+                              ? "bg-green-400"
+                              : "bg-red-700"
+                          } p-0.5 rounded-full`}
                         >
                           {classroomPosts[index]["graded"] == 1 ? (
                             <LucideCheck size={20} className="text-black" />

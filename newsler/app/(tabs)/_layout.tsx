@@ -1,3 +1,4 @@
+// import necessary modules
 import { Tabs } from "expo-router";
 import {
   Bookmark,
@@ -8,20 +9,24 @@ import {
   Settings,
 } from "lucide-react-native";
 import React, { ReactElement } from "react";
+// import react native components
 import { View, Text, Image } from "react-native";
-import Education from "./edu";
 
+// interface for tab icon props
 interface TabIconProps {
   icon: ReactElement;
   color: string;
   focused: Boolean;
 }
 
+// functional component for tab icon
 const TabIcon: React.FC<TabIconProps> = ({ icon, color, focused }) => {
   return <View className="item-center justify-center gap-2">{icon}</View>;
 };
 
+// functional component for tabs layout
 const TabsLayout = () => {
+  // return tabs component with screen options
   return (
     <Tabs
       screenOptions={{
@@ -37,6 +42,7 @@ const TabsLayout = () => {
         animation: "shift",
       }}
     >
+      {/* education tab screen */}
       <Tabs.Screen
         name="edu"
         options={{
@@ -56,6 +62,7 @@ const TabsLayout = () => {
         }}
       />
 
+      {/* home tab screen */}
       <Tabs.Screen
         name="home"
         options={{
@@ -75,6 +82,7 @@ const TabsLayout = () => {
         }}
       />
       <Tabs.Screen
+        // saved tab screen
         name="saved"
         options={{
           title: "Saved",
@@ -92,26 +100,9 @@ const TabsLayout = () => {
           ),
         }}
       />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: "Settings",
-          headerShown: false,
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon
-              icon={
-                <Settings
-                  className={`${focused ? `text-secondary` : `text-primary`}`}
-                />
-              }
-              color={color}
-              focused={focused}
-            />
-          ),
-        }}
-      />
     </Tabs>
   );
 };
 
+// export tabs layout component
 export default TabsLayout;

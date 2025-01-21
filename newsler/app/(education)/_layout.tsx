@@ -3,6 +3,7 @@ import React from "react";
 import { Stack } from "expo-router";
 import { NavigationContainer } from "@react-navigation/native";
 
+// The route path of the education (classroom/assignment)
 const EducationLayout = () => {
   return (
     <NavigationContainer>
