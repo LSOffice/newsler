@@ -1,3 +1,6 @@
+// File that returns the article display page
+// Path: /article/(articleId)
+
 import {
   View,
   Text,
@@ -42,12 +45,15 @@ import {
 import Toast from "react-native-toast-message";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+// main object
+
 const ArticleDisplay = () => {
+  // Get Article ID from search parameters
   const local = useLocalSearchParams();
   const articleId = local.articleId;
+  // setting local variables
   const [postSaved, setPostSaved] = useState(false);
   const [contentHeight, setContentHeight] = useState(0);
-  const scrollViewRef = useRef(null);
   const [newsArticle, setnewsArticle] = useState({});
   const [reactionInfo, setreactionInfo] = useState({});
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
@@ -58,6 +64,7 @@ const ArticleDisplay = () => {
   const [reaction, setReaction] = useState(false);
   const [currentReaction, setcurrentReaction] = useState("");
 
+  // Handles even when user leaves article (clicks left arrow button)
   const back = async () => {
     router.back();
     if (currentReaction != "") {
@@ -72,6 +79,7 @@ const ArticleDisplay = () => {
         reaction_sentiment = 0.3;
       }
 
+      // saves article reaction data
       try {
         const response = await fetch(apiUrl + "/articles/reaction", {
           method: "POST",
@@ -97,6 +105,7 @@ const ArticleDisplay = () => {
       }
     }
 
+    // saves article view and article scroll data
     try {
       const response = await fetch(apiUrl + "/articles/view", {
         method: "POST",
@@ -123,6 +132,7 @@ const ArticleDisplay = () => {
     }
   };
 
+  // Start timer that counts how long the user stays on the page for (view seconds)
   useEffect(() => {
     const intervalId = setInterval(() => {
       setTimer((prevTimer) => prevTimer + 1);
@@ -131,10 +141,12 @@ const ArticleDisplay = () => {
     return () => clearInterval(intervalId);
   }, []);
 
+  // Handler to get the height of the content to determine scroll depth
   const handleContentSizeChange = (width, height) => {
     setContentHeight(height - 650);
   };
 
+  // Handler for scroll event to determine scroll depth
   const handleScroll = async (e: any) => {
     e.persist();
     if (e.nativeEvent.contentOffset.y > greatestDepthTravelled) {
@@ -142,6 +154,7 @@ const ArticleDisplay = () => {
     }
   };
 
+  // Set the reaction of the post by the user (locally)
   const reactionPost = async (reaction_sentiment: number) => {
     if (reaction) {
       Toast.show({
@@ -178,6 +191,7 @@ const ArticleDisplay = () => {
     setreactionInfo(reactionInfo);
   };
 
+  // save post event (making a request to toggle save - unsave or save)
   const savePost = async (e: any) => {
     if (runningSave) {
       return;
@@ -230,6 +244,7 @@ const ArticleDisplay = () => {
     }
   };
 
+  // Load article information when page starts
   useEffect(() => {
     const fetchData = async () => {
       if (isLoaded) {
@@ -293,6 +308,7 @@ const ArticleDisplay = () => {
     fetchData();
   }, []);
 
+  // if page not loaded yet show loading circle spinner
   if (!isLoaded) {
     return (
       <View className="w-full h-full flex justify-center items-center">
@@ -303,6 +319,7 @@ const ArticleDisplay = () => {
       </View>
     );
   } else {
+    // else display article (HTML with tailwind classes)
     return (
       <SafeAreaView
         className="bg-white h-full w-full"

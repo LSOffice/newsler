@@ -1,3 +1,6 @@
+// File that returns the login authentication page
+// Path: /login
+
 import {
   View,
   Text,
@@ -13,7 +16,10 @@ import { Link, router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
 
+// main login object
+
 const Login = () => {
+  // setting local objects
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -22,6 +28,7 @@ const Login = () => {
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
   const [autoSignIn, setautoSignIn] = useState(true);
 
+  // L
   useEffect(() => {
     const fetchData = async () => {
       const st = await AsyncStorage.getItem("session_token");
