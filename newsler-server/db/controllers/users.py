@@ -1,10 +1,17 @@
-import aiomysql
+# This file contains the db requests for the users sections
+
 import os
 
+import aiomysql
 from dotenv import load_dotenv
 
 load_dotenv()
 
+
+# this function takes a dictionary containing user's preferences as input and returns a list of users
+# that match the criteria, ranked by a rating score
+# the rating score is calculated based on the
+# similarity between the user's preferences and the preferences of other users in the database
 async def get_users_based_on_rec_criteria(query: dict):
     conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE"))  # type: ignore
     async with conn.cursor() as cur:

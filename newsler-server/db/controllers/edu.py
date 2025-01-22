@@ -1,3 +1,5 @@
+# This file contains the db requests for the education sections
+
 import json
 import os
 import random
@@ -15,6 +17,7 @@ genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 
 async def user_edu_load(query: dict):
+    # this function loads the educational information for a user, including their user type (student or teacher) and a list of classrooms they are enrolled in.
     # user_id
     conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE"))  # type: ignore
     async with conn.cursor() as cur:
@@ -76,6 +79,7 @@ async def user_edu_load(query: dict):
 
 
 async def user_create_classroom(query: dict):
+    # this function creates a new classroom.
     # classroom_name, education_level, subject_code
     conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE"))  # type: ignore
     async with conn.cursor() as cur:
@@ -109,6 +113,7 @@ async def user_create_classroom(query: dict):
 
 
 async def user_load_classroom(query: dict) -> dict:
+    # this function loads the details of a classroom, including its name, education level, subject code, join code, teacher, and assignments.
     # classroom_id, user_id, type
     conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE"))  # type: ignore
     async with conn.cursor() as cur:
@@ -217,6 +222,7 @@ async def user_load_classroom(query: dict) -> dict:
 
 
 async def user_join_classroom(query: dict):
+    # this function allows a user to join a classroom using a join code.
     # user_id, join_code, type
     conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE"))  # type: ignore
     async with conn.cursor() as cur:
@@ -248,6 +254,7 @@ async def user_join_classroom(query: dict):
 
 
 async def user_leave_classroom(query: dict):
+    # this function allows a user to leave a classroom.
     # user_id, classroom_id
     conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE"))  # type: ignore
     async with conn.cursor() as cur:
@@ -271,6 +278,7 @@ async def user_leave_classroom(query: dict):
 
 
 async def search_articles(query: dict):
+    # this function searches for articles based on their title.
     # title
     conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE"))  # type: ignore
     async with conn.cursor() as cur:
@@ -293,6 +301,7 @@ async def search_articles(query: dict):
 
 
 async def user_create_assignment(query: dict):
+    # this function creates a new assignment for a classroom.
     # classroom_id, author_id, title, description, assignment_type, graded, articles
     conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE"))  # type: ignore
     async with conn.cursor() as cur:
@@ -331,6 +340,7 @@ async def user_create_assignment(query: dict):
 
 
 async def user_5_recently_viewed_articles(query: dict):
+    # this function retrieves the 5 most recently viewed articles for a user.
     # user_id
     conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE"))  # type: ignore
     async with conn.cursor() as cur:
@@ -363,6 +373,7 @@ ORDER BY uai.timestamp DESC;""",
 
 
 async def user_load_assignment(query: dict):
+    # this function loads the details of an assignment for a user.
     # assignment_id, user_id
     conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE"))  # type: ignore
     async with conn.cursor() as cur:
@@ -516,6 +527,7 @@ async def user_load_assignment(query: dict):
 
 
 async def user_load_quiz(query: dict):
+    # this function loads a quiz for an article, generating it if it doesn't exist.
     # assignment_id, user_id, article_id
     conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE"))  # type: ignore
     async with conn.cursor() as cur:
@@ -572,6 +584,7 @@ async def user_load_quiz(query: dict):
 
 
 async def user_delete_assignment(query: dict):
+    # this function deletes an assignment.
     # assignment_id
     conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE"))  # type: ignore
     async with conn.cursor() as cur:
@@ -588,6 +601,7 @@ async def user_delete_assignment(query: dict):
 
 
 async def user_finish_quiz(query: dict):
+    # this function finishes a quiz and updates the user's score.
     # assignment_id, user_id, article_id, answers
     conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE"))  # type: ignore
     async with conn.cursor() as cur:

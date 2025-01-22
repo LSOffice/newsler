@@ -1,3 +1,4 @@
+# this file initializes the database connection and provides functions to interact with the database
 import os
 
 import mysql.connector as mysql

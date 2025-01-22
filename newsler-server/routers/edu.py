@@ -1,3 +1,7 @@
+# This page represents all of the backend functions that power education functionality in this app.
+# The routes include /edu/load, /edu/clasroom/load, /edu/assignment/load, /edu/classroom/join, /edu/classroom/create
+# /edu/quiz/load, /edu/quiz/finish, /edu/assignment/5mrv, /assignment/delete, /assignment/create
+
 import os
 from ast import Delete
 
@@ -95,6 +99,9 @@ async def is_logged_in(req: Request) -> list:
     return [True, auth_obj[2]]
 
 
+# this function loads the educational data for a given user
+# it retrieves the user's educational type (e.g., student, teacher) and a list of classrooms they are enrolled in
+# finally, it returns a dictionary containing the user's educational type and classrooms.
 @router.post("/load")
 async def load_edu(body: Load, auth_headers: list = Depends(is_logged_in)) -> dict:
     user_id = body.user_id
@@ -106,6 +113,8 @@ async def load_edu(body: Load, auth_headers: list = Depends(is_logged_in)) -> di
     return {"edu_type": edu_type, "classrooms": classrooms}
 
 
+# this function allows a user to join a classroom.
+# the function returns a dictionary indicating whether the join was successful.
 @router.post("/classroom/join")
 async def join_classroom(
     body: JoinClassroom, auth_headers: list = Depends(is_logged_in)
@@ -122,6 +131,12 @@ async def join_classroom(
     return {"success": success}
 
 
+# this function allows a user to leave a classroom.
+# it takes a leaveclassroom object as input, which contains the user's id and the classroom id.
+# it then uses the user_leave_classroom function from the edu module to attempt to leave the classroom.
+# the function returns a dictionary indicating whether the leave was successful.
+# if the user is not logged in or the user id is incorrect, it raises an unauthorized exception.
+# if the leave is unsuccessful, it raises a bad request exception.
 @router.post("/classroom/leave")
 async def leave_classroom(
     body: LeaveClassroom, auth_headers: list = Depends(is_logged_in)
@@ -140,6 +155,9 @@ async def leave_classroom(
     return {"success": result}
 
 
+# this function allows a user to create a classroom.
+# the function returns true if the classroom was created successfully, and false otherwise.
+# otherwise, it raises an exception.
 @router.post("/classroom/create")
 async def create_classroom(
     body: CreateClassroom, auth_headers: list = Depends(is_logged_in)
@@ -171,6 +189,8 @@ async def create_classroom(
     return True
 
 
+# this function loads a classroom's information for a given user.
+# the function returns a dictionary containing the classroom information.
 @router.post("/classroom/load")
 async def load_classroom(
     body: LeaveClassroom, auth_headers: list = Depends(is_logged_in)
@@ -190,6 +210,8 @@ async def load_classroom(
     return result
 
 
+# this function loads an assignment's information for a given user
+# the function returns a dictionary containing the assignment information
 @router.post("/assignment/load")
 async def load_assignment(
     body: LoadAssignment, auth_headers: list = Depends(is_logged_in)
@@ -210,6 +232,14 @@ async def load_assignment(
     return result
 
 
+# this function loads a quiz's information for a given user.
+# it takes a loadquiz object as input, which contains the user's id, assignment id, and article id.
+# it then uses the user_load_quiz function from the edu module to retrieve the quiz information.
+# the function returns a dictionary containing the quiz information.
+# if the user is not logged in or the user id is incorrect, it raises an unauthorized exception.
+# if loading the quiz information fails, it raises a bad request exception.
+# the success key is removed from the result before returning.
+# the function handles exceptions and returns appropriate responses.
 @router.post("/quiz/load")
 async def load_quiz(body: LoadQuiz, auth_headers: list = Depends(is_logged_in)) -> dict:
     user_id = body.user_id
@@ -228,6 +258,9 @@ async def load_quiz(body: LoadQuiz, auth_headers: list = Depends(is_logged_in)) 
     return result
 
 
+# this function finishes a quiz for a given user
+# the function returns a dictionary containing the results of the quiz.
+# the function ensures that only authorized users can finish a quiz.
 @router.post("/quiz/finish")
 async def finish_quiz(
     body: FinishQuiz, auth_headers: list = Depends(is_logged_in)
@@ -255,6 +288,13 @@ async def finish_quiz(
     return result
 
 
+# this function retrieves the five most recently viewed articles for a given user.
+# it takes a load object as input, which contains the user's id.
+# it then uses the user_5_recently_viewed_articles function from the edu module to retrieve the articles.
+# the function returns a list of articles.
+# if the user is not logged in or the user id is incorrect, it raises an unauthorized exception.
+# if retrieving the articles fails, it raises a bad request exception.
+# the function handles exceptions and returns appropriate responses.
 @router.post("/assignment/5mrv")
 async def fivemostrecentlyviewed(
     body: Load, auth_headers: list = Depends(is_logged_in)
@@ -273,6 +313,9 @@ async def fivemostrecentlyviewed(
     return result
 
 
+# this function deletes an assignment for a given user
+# the function returns a dictionary indicating whether the deletion was successful
+# the function handles exceptions and returns appropriate responses
 @router.post("/assignment/delete")
 async def delete_assignment(
     body: DeleteAssignment, auth_headers: list = Depends(is_logged_in)
@@ -292,6 +335,9 @@ async def delete_assignment(
     return {"success": result}
 
 
+# this function creates an assignment for a given user
+# the function returns a dictionary indicating whether the creation was successful
+# the function handles exceptions and returns appropriate responses
 @router.post("/assignment/create")
 async def create_assignment(
     body: CreateAssignment, auth_headers: list = Depends(is_logged_in)

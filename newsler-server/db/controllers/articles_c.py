@@ -1,3 +1,5 @@
+# This file contains the db requests for the articles sections
+
 import os
 from datetime import datetime
 from tracemalloc import start
@@ -9,6 +11,7 @@ import bcrypt
 salt = open("config.txt", "r").readlines()[0].replace("salt=", "").encode()
 
 
+# this function creates a new record for when a user views an article
 async def user_article_view_create(db, query: dict):
     cursor = db.cursor()
 
@@ -30,6 +33,7 @@ async def user_article_view_create(db, query: dict):
     db.commit()
 
 
+# this function creates a new record for when a user scrolls through an article
 async def user_article_scroll_complete(db, query: dict):
     cursor = db.cursor()
 
@@ -50,6 +54,7 @@ async def user_article_scroll_complete(db, query: dict):
     db.commit()
 
 
+# this function creates a new record for when a user comments on an article
 def user_article_comment_create(db, query: dict):
     cursor = db.cursor()
 
@@ -74,6 +79,7 @@ def user_article_comment_create(db, query: dict):
     return True
 
 
+# this function updates the age and gender of a user based on their article interactions
 async def user_set_age_and_gender(db, query: dict):
     cursor = db.cursor()
     headers = query["headers"][2:]
@@ -109,6 +115,7 @@ async def user_set_age_and_gender(db, query: dict):
     db.commit()
 
 
+# this function creates a new record for when a user reacts to an article
 def user_article_reaction_create(db, query: dict):
     cursor = db.cursor(buffered=True)
     reaction_id = str(uuid4())
@@ -197,6 +204,7 @@ def user_article_reaction_create(db, query: dict):
     return reactions
 
 
+# this function creates a new record for when a user saves an article
 async def user_save_article(db, query: dict):
     cursor = db.cursor()
     reaction_id = str(uuid4())
@@ -215,6 +223,7 @@ async def user_save_article(db, query: dict):
     return True
 
 
+# this function creates a new record for when a user unsave an article
 async def user_unsave_article(db, query: dict):
     cursor = db.cursor()
     cursor = db.cursor()
@@ -232,6 +241,7 @@ async def user_unsave_article(db, query: dict):
     return True
 
 
+# this function posts reaction information to the database
 def post_reaction_information(db, query: dict):
     cursor = db.cursor()
     cursor = db.cursor()
@@ -251,6 +261,7 @@ def post_reaction_information(db, query: dict):
     return True
 
 
+# this function gets article interaction information from the database
 def get_article_interaction_information(db, query: dict):
     # cursor = db.cursor()
     # article_id = query["article_id"]
@@ -387,6 +398,7 @@ def get_article_interaction_information(db, query: dict):
     return list(reaction_dbs.values())
 
 
+# this function gets article details and interactions from the database
 def get_article_details_and_interactions(db, query: dict):
     # really optimised single query to search for articles and interactions! (7s -> 3s)
     article_id = query["article_id"]
@@ -491,6 +503,7 @@ def get_article_details_and_interactions(db, query: dict):
     return {"article_info": article, "reaction_info": interactions}
 
 
+# this function gets articles of a specific topic from the database
 def get_articles_of_topic(db, query: dict):
     cursor = db.cursor()
     bar = "%" + query["topic"] + "%"
@@ -529,6 +542,7 @@ def get_articles_of_topic(db, query: dict):
     return articles
 
 
+# this function gets all articles from the database
 async def get_all_articles():
     # cursor = db.cursor()
     # sql = "SELECT * FROM articles"
@@ -602,6 +616,7 @@ async def get_all_articles():
         return articles
 
 
+# this function gets saved articles for a specific user from the database
 def get_saved_articles(db, query: dict):
     cursor = db.cursor()
     user_id = query["user_id"]
@@ -652,6 +667,7 @@ def get_saved_articles(db, query: dict):
     return articles
 
 
+# this function gets article details from article id
 def get_article_from_article_id(db, query: dict):
     # cursor = db.cursor()
     # sql = "SELECT * FROM articles WHERE article_id = %s"
@@ -731,12 +747,14 @@ def get_article_from_article_id(db, query: dict):
         return None
 
 
+# this function gets recent articles from the database
 def get_recent_articles(db):
     cursor = db.cursor()
-    # not recent
     sql = "SELECT * FROM articles"
     cursor.execute(sql)
-    return cursor.fetchall()
+
+
+# gets x number of user article interactions from the database
 
 
 def get_x_user_article_interactions(db, query: dict):
@@ -823,6 +841,7 @@ def get_x_user_article_interactions(db, query: dict):
     return results
 
 
+# this function gets global users article interactions from the database
 async def get_global_users_article_interactions():
     conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE"))  # type: ignore
     async with conn.cursor() as cur:
@@ -893,6 +912,7 @@ async def get_global_users_article_interactions():
         return results
 
 
+# this function gets users article interactions from the database
 def get_users_article_interactions(db, query: dict):
     cursor = db.cursor()
     users = tuple(query["users"])

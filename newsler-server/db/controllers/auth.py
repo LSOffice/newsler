@@ -1,3 +1,5 @@
+# This file contains the db requests for the authentication sections
+
 import os
 import uuid
 from datetime import datetime
@@ -9,6 +11,7 @@ import bcrypt
 salt = open("config.txt", "r").readlines()[0].replace("salt=", "").encode()
 
 
+# retrieves session from database given a user_id
 def get_session_from_user_id(db, query: dict):
     cursor = db.cursor()
     user_id = query["user_id"]
@@ -25,6 +28,7 @@ def get_session_from_user_id(db, query: dict):
     return [True, results[0]]
 
 
+# checks if session token is valid
 async def is_session_token_valid(query: dict):
     conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE"))  # type: ignore
     async with conn.cursor() as cur:
@@ -43,6 +47,7 @@ async def is_session_token_valid(query: dict):
             return [False]
 
 
+# updates user session in database
 def update_user_session(db, query: dict):
     cursor = db.cursor()
 
@@ -62,6 +67,7 @@ def update_user_session(db, query: dict):
     return True
 
 
+# updates only the session token of a user session
 def update_user_session_token_only(db, query: dict):
     cursor = db.cursor()
 
@@ -79,6 +85,7 @@ def update_user_session_token_only(db, query: dict):
     return True
 
 
+# creates a new user in the database
 def create_user(db, user: dict):
     cursor = db.cursor()
     sql = "INSERT INTO users (user_id, username, type, password, display_name, country) VALUES (%s, %s, %s, %s, %s, %s)"
@@ -101,6 +108,7 @@ def create_user(db, user: dict):
     return user_id
 
 
+# returns user object from user id
 def return_user_object_from_user_id(db, query: dict) -> list:
     if len(list(query.keys())) != 1:
         raise AttributeError("Should not be more than 1 query field")
@@ -118,6 +126,7 @@ def return_user_object_from_user_id(db, query: dict) -> list:
     return results[0]
 
 
+# gets user geolocation from database
 async def get_user_geolocation(query: dict) -> str:
     if not "user_id" in query:
         raise AttributeError
@@ -134,6 +143,7 @@ async def get_user_geolocation(query: dict) -> str:
         return result[0][2]
 
 
+# updates user recommendation index in database
 def update_user_recommendation_index(db, query: dict):
     cursor = db.cursor()
     if not "user_id" in query:
@@ -166,6 +176,7 @@ def update_user_recommendation_index(db, query: dict):
     db.commit()
 
 
+# gets user recommendation index from database
 async def get_user_recommendation_index(query: dict):
     conn = await aiomysql.connect(host=os.getenv("DB_HOST"), user=os.getenv("DB_USER"), password=os.getenv("DB_PASSWORD"), db=os.getenv("DB_DATABASE"))  # type: ignore
     async with conn.cursor() as cur:
@@ -175,6 +186,7 @@ async def get_user_recommendation_index(query: dict):
         return result
 
 
+# creates a new user recommendation index in the database
 def create_user_recommendation_index(db, query: dict):
     cursor = db.cursor()
     sql = "INSERT INTO user_recommendation_index (user_id, device_type, geolocation, topical_interests, age, gender, preferred_format) VALUES (%s, %s, %s, %s, %s, %s, %s)"
@@ -183,6 +195,7 @@ def create_user_recommendation_index(db, query: dict):
     db.commit()
 
 
+# searches for a user by username
 def search_user_by_username(db, query: dict) -> list:
     if len(list(query.keys())) != 1:
         raise AttributeError("Should not be more than 1 query field")
@@ -200,6 +213,7 @@ def search_user_by_username(db, query: dict) -> list:
     return results
 
 
+# creates a new session in the database
 def create_session(db, session: dict):
     cursor = db.cursor()
     sql = "INSERT INTO sessions (user_id, refresh_token, refreshExpiresAt, session_token, sessionExpiresAt) VALUES (%s, %s, %s, %s, %s)"
