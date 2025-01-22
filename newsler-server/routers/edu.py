@@ -288,13 +288,9 @@ async def finish_quiz(
     return result
 
 
-# this function retrieves the five most recently viewed articles for a given user.
-# it takes a load object as input, which contains the user's id.
-# it then uses the user_5_recently_viewed_articles function from the edu module to retrieve the articles.
-# the function returns a list of articles.
-# if the user is not logged in or the user id is incorrect, it raises an unauthorized exception.
-# if retrieving the articles fails, it raises a bad request exception.
-# the function handles exceptions and returns appropriate responses.
+# this function retrieves the five most recently viewed articles for a given user
+# it takes a load object as input, which contains the user's id
+# the function handles exceptions and returns appropriate responses
 @router.post("/assignment/5mrv")
 async def fivemostrecentlyviewed(
     body: Load, auth_headers: list = Depends(is_logged_in)

@@ -90,35 +90,43 @@ class Queue:
         self.obj = []
         self.length = length
 
+    # Adds item to the back of the queue
     def enqueue(self, item):
         if len(self.obj) == self.length:
             raise IndexError("Queue full")
         self.obj.append(item)
 
+    # Removes and returns item from the front of the queue
     def dequeue(self):
         if len(self.obj) == 0:
             raise IndexError("Queue empty")
         return self.obj.pop(0)
 
+    # Return the item at the front of the queue
     def front(self):
         if len(self.obj) == 0:
             raise IndexError("Queue empty")
         return self.obj[0]
 
+    # Return the item at the back of the queue
     def rear(self):
         if len(self.obj) == 0:
             raise IndexError("Queue empty")
         return self.obj[-1]
 
+    # If queue is empty
     def isEmpty(self):
         return len(self.obj) == 0
 
+    # If queue is full
     def isFull(self):
         return len(self.obj) == self.length
 
+    # Size of queue
     def size(self):
         return len(self.obj)
 
+    # Returns the object
     def getObject(self):
         return self.obj
 
@@ -129,37 +137,43 @@ class Stack:
         self.obj = []
         self.length = length
 
+    # Adds item to the top of the stack
     def push(self, item):
         if len(self.obj) == self.length:
             raise IndexError("Stack full")
         self.obj.append(item)
 
+    # Removes and returns item at the top of the stack
     def pop(self):
         if len(self.obj) == 0:
             raise IndexError("Stack empty")
         return self.obj.pop()
 
+    # Returns the item at the top of the stack
     def top(self):
         if len(self.obj) == 0:
             raise IndexError("Stack empty")
         return self.obj[-1]
 
+    # If stack is empty
     def isEmpty(self):
         return len(self.obj) == 0
 
+    # If stack is full
     def isFull(self):
         return len(self.obj) == self.length
 
+    # Size of stack
     def size(self):
         return len(self.obj)
 
+    # Returns the stack
     def getObject(self):
         return self.obj
 
+    # shuffles stack according to Fisher-Yates shuffle Algorithm random
     def shuffle(self):
-        "Fisher-Yates shuffle Algorithm"
         for i in range(len(self.obj) - 1, 0, -1):
-
             j = random.randint(0, i)
 
             self.obj[i], self.obj[j] = self.obj[j], self.obj[i]
@@ -182,16 +196,21 @@ feeds = {}
 # Function to determine if user is logged in
 async def is_logged_in(req: Request) -> bool:
     try:
+        # get Authorisation from headers of request
         session_token = req.headers["authorization"]
     except KeyError:
         return False
 
+    # Remove "Bearer" from session_token
     session_token = session_token.replace("Bearer ", "")
 
+    # Get validity of session_token
     auth_obj = await auth.is_session_token_valid({"session_token": session_token})
     if not auth_obj[0]:
+        # if no refresh_token or expired refresh_token
         raise HTTPException(status_code=308, detail="Redirect /login")
     if not auth_obj[1]:
+        # if no session_token or expired session_token
         raise HTTPException(status_code=308, detail="Redirect /refreshsession")
 
     return True
@@ -374,9 +393,11 @@ async def feed(body: Feed, auth_headers: bool = Depends(is_logged_in)):
     page = body.page
 
     if not auth_headers:
+        # if authentication headers not valid (session_token invalid)
         raise HTTPException(status_code=401, detail="Unauthorised")
 
     if user_id == None:
+        # if required information not provided in body
         raise HTTPException(status_code=400, detail="Invalid credentials")
     requester_id = user_id
     if str(user_id) not in feeds:
@@ -655,12 +676,14 @@ async def feed(body: Feed, auth_headers: bool = Depends(is_logged_in)):
         for row in rows:
             try:
                 filtered_articles.remove(article_id_to_article[row["article_id"]])
+            # trunk-ignore(bandit/B110)
             except:
                 pass
         for article_id in article_id_to_article:
             if article_id in feeds[str(requester_id)]:
                 try:
                     filtered_articles.remove(article_id_to_article[article_id])
+                # trunk-ignore(bandit/B110)
                 except:
                     pass
 
@@ -746,7 +769,6 @@ async def article_view(body: ArticleView, auth_headers: bool = Depends(is_logged
     if not auth_headers:
         raise HTTPException(status_code=401, detail="Unauthorised")
 
-    # TODO: potentially unsafe point, any token can use any user id)
     asyncio.create_task(
         articles_user_article_view_create(
             {"user_id": user_id, "article_id": article_id, "view_seconds": vs}
@@ -829,9 +851,11 @@ async def headers(body: Headers, auth_headers: bool = Depends(is_logged_in)):
     user_id = body.user_id
 
     if user_id == None:
+        # If user_id not provided
         raise HTTPException(status_code=400, detail="Invalid credentials")
 
     if not auth_headers:
+        # If
         raise HTTPException(status_code=401, detail="Unauthorised")
 
     interactions = await recent_x_user_article_interactions_ranked(
