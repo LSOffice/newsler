@@ -1,4 +1,4 @@
-# Cross-Platform Mobile App
+# News Recommender App (Newsler)
 
 A performant, scalable mobile application built with **React Native** and **TypeScript**, designed for seamless deployment across iOS and Android.
 
